@@ -21,6 +21,7 @@ enum TimeSpan: CaseIterable {
     case sixHours
     case twelveHours
     case twentyFourHours
+    case threeDays
     case sevenDays
     
     var hours: Int {
@@ -28,6 +29,7 @@ enum TimeSpan: CaseIterable {
         case .sixHours: return 6
         case .twelveHours: return 12
         case .twentyFourHours: return 24
+        case .threeDays: return 72
         case .sevenDays: return 168
         }
     }
@@ -37,6 +39,7 @@ enum TimeSpan: CaseIterable {
         case .sixHours: return "6H"
         case .twelveHours: return "12H"
         case .twentyFourHours: return "1D"
+        case .threeDays: return "3D"
         case .sevenDays: return "7D"
         }
     }
@@ -46,6 +49,7 @@ enum TimeSpan: CaseIterable {
         case .sixHours: return 1
         case .twelveHours: return 2
         case .twentyFourHours: return 3
+        case .threeDays: return 6
         case .sevenDays: return 12
         }
     }
@@ -113,6 +117,8 @@ struct CircularTimelineView: View {
             return stride(from: startHour, to: startHour + 12, by: 2).map { $0 }
         case .twentyFourHours:
             return stride(from: 0, to: 24, by: 3).map { $0 }
+        case .threeDays:
+            return stride(from: 0, to: 72, by: 6).map { $0 }
         case .sevenDays:
             return stride(from: 0, to: 168, by: 12).map { $0 }
         }
@@ -182,6 +188,29 @@ struct CircularTimelineView: View {
                                     .stroke(Color.white.opacity(0.8), lineWidth: 3)
                                     .frame(width: circleRadius * 2, height: circleRadius * 2)
                                 
+                                // North pole indicator (12 o'clock position)
+                                Rectangle()
+                                    .fill(Color.white)
+                                    .frame(width: 2, height: 15)
+                                    .offset(y: -circleRadius - 7.5)
+                                
+                                // Minor tick marks based on time span
+                                ZStack {
+                                    let tickCount = timeSpan == .sixHours || timeSpan == .twelveHours ? 60 : 
+                                                   timeSpan == .twentyFourHours ? 96 : 60
+                                    let tickInterval = 360.0 / Double(tickCount)
+                                    
+                                    ForEach(0..<tickCount, id: \.self) { tick in
+                                        Rectangle()
+                                            .fill(Color.white.opacity(tick % 4 == 0 ? 0.5 : 0.2))
+                                            .frame(width: tick % 4 == 0 ? 1.5 : 0.5, 
+                                                  height: tick % 4 == 0 ? 8 : 4)
+                                            .offset(y: -circleRadius + (tick % 4 == 0 ? 4 : 2))
+                                            .rotationEffect(Angle(degrees: Double(tick) * tickInterval))
+                                    }
+                                }
+                                .rotationEffect(rotationAngle) // Rotate ticks with the wheel
+                                
                                 // Rotating content group (only arcs)
                                 ZStack {
                                     // Interaction arcs
@@ -226,26 +255,7 @@ struct CircularTimelineView: View {
                                     )
                                 }
                                 
-                                // Center content (never moves)
-                                CenterContentView(
-                                    currentTimeSpan: $currentTimeSpan,
-                                    isZooming: $isZooming,
-                                    currentDate: currentDate,
-                                    currentTime: getCurrentTimeDisplay(),
-                                    onZoomChange: { newTimeSpan in
-                                        withAnimation(.easeInOut(duration: 0.4)) {
-                                            currentTimeSpan = newTimeSpan
-                                            updateInteractionsForCurrentDate()
-                                        }
-                                    },
-                                    onNavigate: { isNext in
-                                        if isNext {
-                                            navigateToNextInterval()
-                                        } else {
-                                            navigateToPreviousInterval()
-                                        }
-                                    }
-                                )
+                                // Note: Center content moved outside to be above gradient
                             }
                             .frame(width: containerSize, height: containerSize)
                             .offset(x: horizontalOffset)
@@ -276,6 +286,28 @@ struct CircularTimelineView: View {
                         .frame(height: geometry.size.height * 0.4) // 40% coverage
                         .allowsHitTesting(false)
                 }
+                
+                // Center content above gradient (immune to fade)
+                CenterContentView(
+                    currentTimeSpan: $currentTimeSpan,
+                    isZooming: $isZooming,
+                    currentDate: currentDate,
+                    currentTime: getCurrentTimeDisplay(),
+                    onZoomChange: { newTimeSpan in
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            currentTimeSpan = newTimeSpan
+                            updateInteractionsForCurrentDate()
+                        }
+                    },
+                    onNavigate: { isNext in
+                        if isNext {
+                            navigateToNextInterval()
+                        } else {
+                            navigateToPreviousInterval()
+                        }
+                    }
+                )
+                .position(x: geometry.size.width / 2, y: geometry.size.height - 150) // Position in visible area
             }
         }
         .onAppear {
@@ -418,6 +450,8 @@ struct CircularTimelineView: View {
                 self.currentDate = calendar.date(byAdding: .hour, value: -12, to: self.currentDate) ?? self.currentDate
             case .twentyFourHours:
                 self.currentDate = calendar.date(byAdding: .day, value: -1, to: self.currentDate) ?? self.currentDate
+            case .threeDays:
+                self.currentDate = calendar.date(byAdding: .day, value: -3, to: self.currentDate) ?? self.currentDate
             case .sevenDays:
                 self.currentDate = calendar.date(byAdding: .day, value: -7, to: self.currentDate) ?? self.currentDate
             }
@@ -461,6 +495,8 @@ struct CircularTimelineView: View {
                 self.currentDate = calendar.date(byAdding: .hour, value: 12, to: self.currentDate) ?? self.currentDate
             case .twentyFourHours:
                 self.currentDate = calendar.date(byAdding: .day, value: 1, to: self.currentDate) ?? self.currentDate
+            case .threeDays:
+                self.currentDate = calendar.date(byAdding: .day, value: 3, to: self.currentDate) ?? self.currentDate
             case .sevenDays:
                 self.currentDate = calendar.date(byAdding: .day, value: 7, to: self.currentDate) ?? self.currentDate
             }
@@ -511,6 +547,8 @@ struct CircularTimelineView: View {
             return calendar.date(byAdding: .hour, value: -12, to: currentDate) ?? currentDate
         case .twentyFourHours:
             return calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+        case .threeDays:
+            return calendar.date(byAdding: .day, value: -3, to: currentDate) ?? currentDate
         case .sevenDays:
             return calendar.date(byAdding: .day, value: -7, to: currentDate) ?? currentDate
         }
@@ -526,6 +564,8 @@ struct CircularTimelineView: View {
             return calendar.date(byAdding: .hour, value: 12, to: currentDate) ?? currentDate
         case .twentyFourHours:
             return calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+        case .threeDays:
+            return calendar.date(byAdding: .day, value: 3, to: currentDate) ?? currentDate
         case .sevenDays:
             return calendar.date(byAdding: .day, value: 7, to: currentDate) ?? currentDate
         }
