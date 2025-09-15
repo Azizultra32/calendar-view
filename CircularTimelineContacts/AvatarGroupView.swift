@@ -82,8 +82,7 @@ struct AvatarGroupView: View {
     private func shouldShowAvatar(for interaction: TimeInteraction) -> Bool {
         // Show avatar only if the interaction is within the current time span
         let calendar = Calendar.current
-        let now = Date()
-        let startOfTimeSpan = calendar.startOfDay(for: now)
+        let startOfTimeSpan = calendar.startOfDay(for: currentDate)
         
         return interaction.startTime >= startOfTimeSpan
     }

@@ -5,6 +5,7 @@ struct InteractionArcView: View {
     let radius: CGFloat
     let center: CGPoint
     let timeSpan: TimeSpan
+    let currentDate: Date
     
     var body: some View {
         let startAngle = angleFromTime(interaction.startTime)
@@ -30,13 +31,13 @@ struct InteractionArcView: View {
         switch timeSpan {
         case .sixHours:
             // Get the current 6-hour window
-            let currentHour = calendar.component(.hour, from: Date())
+            let currentHour = calendar.component(.hour, from: currentDate)
             let windowStart = (currentHour / 6) * 6
             let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
             return (hoursFromStart / 6.0) * 2 * .pi - .pi/2
         case .twelveHours:
             // Get the current 12-hour window
-            let currentHour = calendar.component(.hour, from: Date())
+            let currentHour = calendar.component(.hour, from: currentDate)
             let windowStart = (currentHour / 12) * 12
             let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
             return (hoursFromStart / 12.0) * 2 * .pi - .pi/2

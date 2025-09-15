@@ -189,7 +189,8 @@ struct CircularTimelineView: View {
                                             interaction: interaction,
                                             radius: circleRadius,
                                             center: CGPoint(x: containerSize/2, y: containerSize/2),
-                                            timeSpan: currentTimeSpan
+                                            timeSpan: currentTimeSpan,
+                                            currentDate: currentDate
                                         )
                                         .opacity(navigationDirection == .none ? 1.0 : 0.5)
                                         .scaleEffect(navigationDirection == .none ? 1.0 : 0.95)
