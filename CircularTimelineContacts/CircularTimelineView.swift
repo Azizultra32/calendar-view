@@ -194,20 +194,14 @@ struct CircularTimelineView: View {
                                     .frame(width: 2, height: 15)
                                     .offset(y: -circleRadius - 7.5)
                                 
-                                // Minor tick marks based on time span
-                                ZStack {
-                                    let tickCount = timeSpan == .sixHours || timeSpan == .twelveHours ? 60 : 
-                                                   timeSpan == .twentyFourHours ? 96 : 60
-                                    let tickInterval = 360.0 / Double(tickCount)
-                                    
-                                    ForEach(0..<tickCount, id: \.self) { tick in
-                                        Rectangle()
-                                            .fill(Color.white.opacity(tick % 4 == 0 ? 0.5 : 0.2))
-                                            .frame(width: tick % 4 == 0 ? 1.5 : 0.5, 
-                                                  height: tick % 4 == 0 ? 8 : 4)
-                                            .offset(y: -circleRadius + (tick % 4 == 0 ? 4 : 2))
-                                            .rotationEffect(Angle(degrees: Double(tick) * tickInterval))
-                                    }
+                                // Minor tick marks (simplified to prevent compiler issues)
+                                ForEach(0..<60, id: \.self) { minute in
+                                    Rectangle()
+                                        .fill(Color.white.opacity(minute % 5 == 0 ? 0.4 : 0.2))
+                                        .frame(width: minute % 5 == 0 ? 1.5 : 0.5, 
+                                              height: minute % 5 == 0 ? 8 : 4)
+                                        .offset(y: -circleRadius + (minute % 5 == 0 ? 4 : 2))
+                                        .rotationEffect(Angle(degrees: Double(minute) * 6))
                                 }
                                 .rotationEffect(rotationAngle) // Rotate ticks with the wheel
                                 
