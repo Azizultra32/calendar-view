@@ -27,8 +27,8 @@ struct AvatarGroupView: View {
                         .fill(interaction.color)
                         .overlay(Circle().stroke(Color.white, lineWidth: 2))
                 )
-                .rotationEffect(-rotation) // Counter-rotate to stay upright
                 .position(x: x, y: y)
+                .rotationEffect(-rotation) // Counter-rotate AFTER positioning to stay upright
                 .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
         .frame(width: containerSize, height: containerSize)
@@ -58,6 +58,11 @@ struct AvatarGroupView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
+        case .threeDays:
+            // For 3-day view, calculate position across 72 hours
+            let totalMinutes = Double(hour * 60 + minute)
+            let spanMinutes = Double(72 * 60)
+            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
         case .sevenDays:
             // For multi-day views, we need to calculate based on the full span
             let totalMinutes = Double(hour * 60 + minute)

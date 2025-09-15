@@ -183,9 +183,9 @@ struct CircularTimelineView: View {
                             
                             // Main timeline container
                             ZStack {
-                                // Base circle (doesn't rotate) - make it more visible for debugging
+                                // Base circle (doesn't rotate) - make it more visible
                                 Circle()
-                                    .stroke(Color.white.opacity(0.8), lineWidth: 3)
+                                    .stroke(Color.white, lineWidth: 2)
                                     .frame(width: circleRadius * 2, height: circleRadius * 2)
                                 
                                 // North pole indicator (12 o'clock position)
@@ -301,7 +301,7 @@ struct CircularTimelineView: View {
                         }
                     }
                 )
-                .position(x: geometry.size.width / 2, y: geometry.size.height - 150) // Position in visible area
+                .position(x: geometry.size.width / 2, y: geometry.size.height - 250) // Move higher away from gradient
             }
         }
         .onAppear {
