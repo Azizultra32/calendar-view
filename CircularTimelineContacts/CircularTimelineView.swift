@@ -58,6 +58,9 @@ struct CircularTimelineView: View {
     @State private var isDragging = false
     @State private var velocity: Double = 0
     
+    // Time tracking
+    @State private var currentTimeOffset: Double = 0 // Hours from start of current day
+    
     // Zoom state
     @State private var currentTimeSpan: TimeSpan = .twentyFourHours
     @State private var zoomOffset: CGFloat = 0
@@ -150,7 +153,6 @@ struct CircularTimelineView: View {
                             .padding(.top, 80)  // Much higher
                             .scaleEffect(navigationDirection == .next ? 1.2 : 1.0)
                             .offset(x: navigationDirection == .next ? 20 : 0)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: navigationDirection)
                             
                             Spacer()
                             
@@ -167,7 +169,6 @@ struct CircularTimelineView: View {
                             .padding(.top, 80)  // Much higher
                             .scaleEffect(navigationDirection == .previous ? 1.2 : 1.0)
                             .offset(x: navigationDirection == .previous ? -20 : 0)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: navigationDirection)
                         }
                         
                         // Main timeline pushed down much further
@@ -230,8 +231,12 @@ struct CircularTimelineView: View {
                                     currentTimeSpan: $currentTimeSpan,
                                     isZooming: $isZooming,
                                     currentDate: currentDate,
+                                    currentTime: getCurrentTimeDisplay(),
                                     onZoomChange: { newTimeSpan in
-                                        // Handle zoom change if needed
+                                        withAnimation(.easeInOut(duration: 0.4)) {
+                                            currentTimeSpan = newTimeSpan
+                                            updateInteractionsForCurrentDate()
+                                        }
                                     },
                                     onNavigate: { isNext in
                                         if isNext {
@@ -245,11 +250,31 @@ struct CircularTimelineView: View {
                             .frame(width: containerSize, height: containerSize)
                             .offset(x: horizontalOffset)
                             .gesture(rotationGesture)
-                            .animation(.easeInOut(duration: 0.3), value: navigationDirection)
                             
                             Spacer(minLength: 50)  // Add some bottom spacing
                         }
                     }
+                }
+                
+                // Bottom mask to create horizon effect
+                VStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.black.opacity(0),
+                                    Color.black.opacity(0.8),
+                                    Color.black,
+                                    Color.black,
+                                    Color.black
+                                ]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(height: geometry.size.height * 0.4) // 40% coverage
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -288,6 +313,13 @@ struct CircularTimelineView: View {
                 
                 let deltaAngle = Angle(radians: delta)
                 rotationAngle = rotationAngle + deltaAngle
+                
+                // Convert rotation to time change
+                // Clockwise (negative delta) = backwards in time
+                // Counterclockwise (positive delta) = forwards in time
+                let timeChange = -delta * (Double(currentTimeSpan.hours) / (2 * .pi))
+                updateTime(by: timeChange)
+                
                 velocity = delta * 60.0 // Convert to per-second
                 lastAngle = Angle(radians: currentAngle)
             }
@@ -308,10 +340,58 @@ struct CircularTimelineView: View {
         
         // Apply friction
         velocity *= 0.95
-        rotationAngle += Angle(radians: velocity / 60)
+        
+        // Continue rotating
+        let deltaAngle = Angle(radians: velocity / 60)
+        rotationAngle = rotationAngle + deltaAngle
+        
+        // Continue time updates
+        let timeChange = -(velocity / 60) * (Double(currentTimeSpan.hours) / (2 * .pi))
+        updateTime(by: timeChange)
         
         if abs(velocity) < 0.01 {
             velocity = 0
+        }
+    }
+    
+    // MARK: - Time Management
+    private func updateTime(by hours: Double) {
+        currentTimeOffset += hours
+        
+        // Handle day transitions
+        let calendar = Calendar.current
+        
+        // Moving forward past 24 hours
+        while currentTimeOffset >= 24 {
+            currentTimeOffset -= 24
+            if let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDate) {
+                currentDate = nextDay
+                updateInteractionsForCurrentDate()
+            }
+        }
+        
+        // Moving backward past 0 hours
+        while currentTimeOffset < 0 {
+            currentTimeOffset += 24
+            if let prevDay = calendar.date(byAdding: .day, value: -1, to: currentDate) {
+                currentDate = prevDay
+                updateInteractionsForCurrentDate()
+            }
+        }
+    }
+    
+    private func getCurrentTimeDisplay() -> String {
+        let hour = Int(currentTimeOffset)
+        let minute = Int((currentTimeOffset - Double(hour)) * 60)
+        
+        if hour == 0 {
+            return String(format: "12:%02d AM", minute)
+        } else if hour < 12 {
+            return String(format: "%d:%02d AM", hour, minute)
+        } else if hour == 12 {
+            return String(format: "12:%02d PM", minute)
+        } else {
+            return String(format: "%d:%02d PM", hour - 12, minute)
         }
     }
     
@@ -325,7 +405,7 @@ struct CircularTimelineView: View {
         navigationDirection = .previous
         
         // Animate the transition
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             horizontalOffset = 50 // Slide effect
         }
         
@@ -350,7 +430,7 @@ struct CircularTimelineView: View {
             }
             
             // Reset offset
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 self.horizontalOffset = 0
             }
             
@@ -368,7 +448,7 @@ struct CircularTimelineView: View {
         navigationDirection = .next
         
         // Animate the transition
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             horizontalOffset = -50 // Slide effect opposite direction
         }
         
@@ -391,7 +471,7 @@ struct CircularTimelineView: View {
             }
             
             // Reset offset
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 self.horizontalOffset = 0
             }
             

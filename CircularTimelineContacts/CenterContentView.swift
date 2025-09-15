@@ -4,8 +4,9 @@ struct CenterContentView: View {
     @Binding var currentTimeSpan: TimeSpan
     @Binding var isZooming: Bool
     let currentDate: Date
+    let currentTime: String
     let onZoomChange: (TimeSpan) -> Void
-    let onNavigate: (Bool) -> Void // true for next, false for previous
+    let onNavigate: (Bool) -> Void
     
     @State private var dragOffset: CGFloat = 0
     @State private var isNavigating = false
@@ -24,14 +25,14 @@ struct CenterContentView: View {
     
     var body: some View {
         VStack(spacing: 2) {
-            Text(dayOfWeekFormatter.string(from: currentDate).uppercased())
-                .font(.system(size: 28, weight: .bold))
+            Text(currentTime)
+                .font(.system(size: 24, weight: .bold))
                 .foregroundColor(.white)
-            Text(fullDateFormatter.string(from: currentDate))
+            Text(dayOfWeekFormatter.string(from: currentDate).uppercased())
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.white)
-            Text(getTimeRangeText())
-                .font(.system(size: 11, weight: .medium))
+            Text(currentTimeSpan.displayText)
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(Color.gray.opacity(0.6))
         }
         .offset(y: dragOffset)
