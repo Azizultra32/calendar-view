@@ -8,6 +8,8 @@ struct AvatarGroupView: View {
     let rotation: Angle
     let timeSpan: TimeSpan
     let currentDate: Date
+    let selectedInteractionID: UUID?
+    let selectedPersonID: UUID?
     
     var body: some View {
         ForEach(Array(interaction.participants.enumerated()), id: \.element.id) { index, person in
@@ -18,6 +20,12 @@ struct AvatarGroupView: View {
             let y = center.y + sin(rotatedAngle) * radius
             
             // Single avatar with both circle and text
+            let isSelected = interaction.id == selectedInteractionID && person.id == selectedPersonID
+            let isSelectionActive = selectedInteractionID != nil && selectedPersonID != nil
+            let baseOpacity = shouldShowAvatar(for: interaction) ? 1.0 : 0.3
+            let finalOpacity = isSelected ? 1.0 : (isSelectionActive ? baseOpacity * 0.45 : baseOpacity)
+            let scale = isSelected ? 1.18 : 1.0
+
             Text(person.initial)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.white)
@@ -25,11 +33,17 @@ struct AvatarGroupView: View {
                 .background(
                     Circle()
                         .fill(interaction.color)
-                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.7), lineWidth: isSelected ? 3 : 2)
+                                .shadow(color: isSelected ? interaction.color.opacity(0.6) : Color.clear, radius: isSelected ? 12 : 0)
+                        )
+                        .shadow(color: interaction.color.opacity(isSelected ? 0.6 : 0.25), radius: isSelected ? 16 : 8)
                 )
-                .rotationEffect(-rotation) // Counter-rotate to stay upright
+                .scaleEffect(scale)
                 .position(x: x, y: y)
-                .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
+                .rotationEffect(-rotation) // Counter-rotate AFTER positioning to stay upright
+                .opacity(finalOpacity)
         }
         .frame(width: containerSize, height: containerSize)
     }
@@ -58,6 +72,11 @@ struct AvatarGroupView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
+        case .threeDays:
+            // For 3-day view, calculate position across 72 hours
+            let totalMinutes = Double(hour * 60 + minute)
+            let spanMinutes = Double(72 * 60)
+            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
         case .sevenDays:
             // For multi-day views, we need to calculate based on the full span
             let totalMinutes = Double(hour * 60 + minute)

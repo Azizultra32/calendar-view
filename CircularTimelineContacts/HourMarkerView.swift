@@ -46,6 +46,18 @@ struct HourMarkerView: View {
             if hour < 12 { return "\(hour)AM" }
             if hour == 12 { return "12PM" }
             return "\(hour - 12)PM"
+        case .threeDays:
+            // For 3-day view, show day markers at major intervals
+            let day = hour / 24
+            let hourInDay = hour % 24
+            if hourInDay == 0 {
+                let dayNames = ["Today", "+1D", "+2D"]
+                return dayNames[day % 3]
+            }
+            // Show hour for non-midnight times
+            if hourInDay == 12 { return "12PM" }
+            if hourInDay < 12 { return "\(hourInDay)AM" }
+            return "\(hourInDay - 12)PM"
         case .sevenDays:
             let day = hour / 24
             let dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
