@@ -250,6 +250,25 @@ struct CircularTimelineView: View {
                                 }
                                 
                                 // Note: Center content moved outside to be above gradient
+                                
+                                // Per-circle fade: bottom half to full black at the very bottom
+                                // This overlay is clipped to the main circle only and does not
+                                // affect the rest of the UI.
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(stops: [
+                                                .init(color: .clear, location: 0.0),
+                                                .init(color: .clear, location: 0.50), // upper half fully visible
+                                                .init(color: .black.opacity(0.7), location: 0.85),
+                                                .init(color: .black, location: 1.0)  // bottom edge reaches black
+                                            ]),
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .frame(width: circleRadius * 2, height: circleRadius * 2)
+                                    .allowsHitTesting(false)
                             }
                             .frame(width: containerSize, height: containerSize)
                             .offset(x: horizontalOffset)
