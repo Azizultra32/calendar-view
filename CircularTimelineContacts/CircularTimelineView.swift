@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Models
 struct TimeInteraction: Identifiable {
@@ -10,10 +11,317 @@ struct TimeInteraction: Identifiable {
     let location: String
 }
 
+// MARK: - Selection Overlay Views
+
+private struct NorthIndicatorView: View {
+    var body: some View {
+        VStack(spacing: 4) {
+            Capsule()
+                .fill(Color.white.opacity(0.95))
+                .frame(width: 6, height: 24)
+                .shadow(color: Color.white.opacity(0.25), radius: 6, y: 4)
+            PointerTriangle()
+                .fill(Color.white.opacity(0.95))
+                .frame(width: 18, height: 10)
+        }
+        .overlay(
+            Circle()
+                .stroke(Color.white.opacity(0.45), lineWidth: 1.5)
+                .frame(width: 36, height: 36)
+                .offset(y: 34)
+        )
+        .offset(y: -6)
+    }
+}
+
+private struct PointerTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private enum SelectionCardAction {
+    case call
+    case message
+    case openDetails
+}
+
+private struct ActionError: Identifiable {
+    let id = UUID()
+    let message: String
+}
+
+private struct SelectionCardView: View {
+    let person: Person
+    let interaction: TimeInteraction
+    let isVisible: Bool
+    let onAction: (SelectionCardAction) -> Void
+    let contactDetail: String
+
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }
+
+    private var dayFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter
+    }
+
+    var body: some View {
+        HStack(spacing: 24) {
+            VStack(alignment: .leading, spacing: 10) {
+                SelectionCardHalf(
+                    title: person.name,
+                    subtitle: "Contact",
+                    detail: contactDetail,
+                    alignment: .leading,
+                    isVisible: isVisible,
+                    direction: .leading
+                )
+
+                HStack(spacing: 12) {
+                    ActionPill(
+                        systemName: "phone.fill",
+                        title: "Call",
+                        isVisible: isVisible,
+                        action: { onAction(.call) }
+                    )
+                    ActionPill(
+                        systemName: "message.fill",
+                        title: "Message",
+                        isVisible: isVisible,
+                        action: { onAction(.message) }
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 10) {
+                SelectionCardHalf(
+                    title: timeRangeText,
+                    subtitle: interaction.location,
+                    detail: dayFormatter.string(from: interaction.startTime),
+                    alignment: .trailing,
+                    isVisible: isVisible,
+                    direction: .trailing
+                )
+
+                ActionPill(
+                    systemName: "calendar.badge.plus",
+                    title: "Open Day",
+                    isVisible: isVisible,
+                    action: { onAction(.openDetails) }
+                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color.black.opacity(0.45))
+                        .blur(radius: 30)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 20, y: 12)
+        .padding(.horizontal, 24)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isVisible)
+    }
+
+    private var timeRangeText: String {
+        let start = timeFormatter.string(from: interaction.startTime)
+        let end = timeFormatter.string(from: interaction.endTime)
+        return "\(start) – \(end)"
+    }
+}
+
+private struct SelectionCardHalf: View {
+    enum Direction {
+        case leading
+        case trailing
+    }
+    
+    let title: String
+    let subtitle: String
+    let detail: String
+    let alignment: HorizontalAlignment
+    let isVisible: Bool
+    let direction: Direction
+
+    var body: some View {
+        VStack(alignment: alignment, spacing: 6) {
+            Text(subtitle.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Color.white.opacity(0.6))
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(2)
+            Text(detail)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+        .offset(x: isVisible ? 0 : hiddenOffset)
+        .opacity(isVisible ? 1 : 0)
+    }
+
+    private var hiddenOffset: CGFloat {
+        switch direction {
+        case .leading:
+            return -120
+        case .trailing:
+            return 120
+        }
+    }
+}
+
+private struct ActionPill: View {
+    let systemName: String
+    let title: String
+    let isVisible: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemName)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.14))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 10, y: 6)
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isVisible ? 1 : 0.92)
+        .opacity(isVisible ? 1 : 0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: isVisible)
+    }
+}
+
+private struct InteractionDetailSheet: View {
+    let interaction: TimeInteraction
+
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d • h:mm a"
+        return formatter
+    }
+
+    private var rangeFormatter: DateIntervalFormatter {
+        let formatter = DateIntervalFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(interaction.location)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text(rangeFormatter.string(from: interaction.startTime, to: interaction.endTime))
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.7))
+
+                Text(timeFormatter.string(from: interaction.startTime))
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(Color.white.opacity(0.5))
+
+                Divider().background(Color.white.opacity(0.2))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Participants")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    ForEach(interaction.participants) { person in
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(interaction.color.opacity(0.8))
+                                .frame(width: 32, height: 32)
+                                .overlay(
+                                    Text(person.initial)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(person.name)
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(.white)
+                                if let phone = person.phoneNumber {
+                                    Text(formattedPhone(phone))
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color.white.opacity(0.6))
+                                }
+                                if let handle = person.messageHandle, person.phoneNumber == nil {
+                                    Text(handle)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color.white.opacity(0.6))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 32)
+        }
+        .background(Color.black.ignoresSafeArea())
+    }
+
+    private func formattedPhone(_ phone: String) -> String {
+        let digits = phone.filter { $0.isNumber }
+        guard digits.count == 10 else { return phone }
+        let area = digits.prefix(3)
+        let middle = digits.dropFirst(3).prefix(3)
+        let last = digits.suffix(4)
+        return "(\(area)) \(middle)-\(last)"
+    }
+}
+
 struct Person: Identifiable {
     let id = UUID()
     let name: String
     let initial: String
+    let phoneNumber: String?
+    let messageHandle: String?
+
+    init(name: String, initial: String, phoneNumber: String? = nil, messageHandle: String? = nil) {
+        self.name = name
+        self.initial = initial
+        self.phoneNumber = phoneNumber
+        self.messageHandle = messageHandle
+    }
 }
 
 // MARK: - Time Span Options
@@ -86,6 +394,11 @@ struct CircularTimelineView: View {
     private let avatarDiameter: CGFloat = 28
     private let circleRadius: CGFloat = 120
     private let containerSize: CGFloat = 300  // Total size of the view
+
+    private let northAngle = -Double.pi / 2
+    private let selectionThreshold = Double.pi / 18 // ~10° window for snap candidate
+    private let selectionReleaseThreshold = Double.pi / 8 // ~22.5° before deselection
+    private let selectionHoldDuration: TimeInterval = 1.0
     
     private var touchAngleDegrees: Double {
         (Double(avatarDiameter) / Double(circleRadius)) * (180 / .pi) // 13.4°
@@ -99,6 +412,30 @@ struct CircularTimelineView: View {
     @State private var interactions: [TimeInteraction] = []
     @State private var previousInteractions: [TimeInteraction] = []
     @State private var nextInteractions: [TimeInteraction] = []
+
+    // Selection & feedback state
+    @State private var pendingCandidate: AvatarCandidate?
+    @State private var candidateHoldStart: Date?
+    @State private var selectedAvatar: AvatarCandidate?
+    @State private var cardVisible = false
+    @State private var isSnappingToSelection = false
+    @State private var lastTickIndex: Int?
+    @State private var actionError: ActionError?
+    @State private var detailInteraction: TimeInteraction?
+    private let selectionFeedback = UISelectionFeedbackGenerator()
+    private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
+    private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
+
+    private struct AvatarCandidate: Equatable {
+        let interaction: TimeInteraction
+        let person: Person
+        let participantIndex: Int
+        let baseAngle: Double
+
+        static func == (lhs: AvatarCandidate, rhs: AvatarCandidate) -> Bool {
+            lhs.interaction.id == rhs.interaction.id && lhs.person.id == rhs.person.id && lhs.participantIndex == rhs.participantIndex
+        }
+    }
     
     // Computed property for hour markers based on time span
     var hourMarkersForTimeSpan: [Int] {
@@ -189,10 +526,8 @@ struct CircularTimelineView: View {
                                     .frame(width: circleRadius * 2, height: circleRadius * 2)
                                 
                                 // North pole indicator (12 o'clock position)
-                                Rectangle()
-                                    .fill(Color.white)
-                                    .frame(width: 2, height: 15)
-                                    .offset(y: -circleRadius - 7.5)
+                                NorthIndicatorView()
+                                    .offset(y: -circleRadius - 24)
                                 
                                 // Minor tick marks (simplified to prevent compiler issues)
                                 ForEach(0..<60, id: \.self) { minute in
@@ -232,7 +567,9 @@ struct CircularTimelineView: View {
                                         overlapAngle: overlapAngle,
                                         rotation: rotationAngle,
                                         timeSpan: currentTimeSpan,
-                                        currentDate: currentDate
+                                        currentDate: currentDate,
+                                        selectedInteractionID: selectedAvatar?.interaction.id,
+                                        selectedPersonID: selectedAvatar?.person.id
                                     )
                                     .opacity(navigationDirection == .none ? 1.0 : 0.3)
                                     .scaleEffect(navigationDirection == .none ? 1.0 : 0.9)
@@ -321,15 +658,45 @@ struct CircularTimelineView: View {
                     }
                 )
                 .position(x: geometry.size.width / 2, y: geometry.size.height - 250) // Move higher away from gradient
+
+                if let selection = selectedAvatar {
+                    SelectionCardView(
+                        person: selection.person,
+                        interaction: selection.interaction,
+                        isVisible: cardVisible,
+                        onAction: handleSelectionAction,
+                        contactDetail: contactDetail(for: selection.person)
+                    )
+                    .frame(maxWidth: 320)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.32)
+                    .allowsHitTesting(cardVisible)
+                }
             }
         }
         .onAppear {
+            selectionFeedback.prepare()
+            actionFeedback.prepare()
+            tickFeedback.prepare()
             setupSampleData()
+            updateTickIndex()
+            evaluateSelectionCandidate()
         }
         .onReceive(Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()) { _ in
             if !isDragging && !isZooming && !isNavigating && abs(velocity) > 0.01 {
                 applyMomentum()
             }
+        }
+        .sheet(item: $detailInteraction) { interaction in
+            InteractionDetailSheet(interaction: interaction)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert(item: $actionError) { error in
+            Alert(
+                title: Text("Action Unavailable"),
+                message: Text(error.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
     
@@ -338,6 +705,9 @@ struct CircularTimelineView: View {
         DragGesture()
             .onChanged { value in
                 isDragging = true
+                if cardVisible {
+                    ensureSelectionCardVisible(false)
+                }
                 
                 let center = CGPoint(x: containerSize/2, y: containerSize/2)
                 let currentAngle = angle(from: center, to: value.location)
@@ -367,10 +737,12 @@ struct CircularTimelineView: View {
                 
                 velocity = delta * 60.0 // Convert to per-second
                 lastAngle = Angle(radians: currentAngle)
+                evaluateSelectionCandidate()
             }
             .onEnded { _ in
                 isDragging = false
                 lastAngle = .zero
+                candidateHoldStart = nil
             }
     }
     
@@ -393,6 +765,7 @@ struct CircularTimelineView: View {
         // Continue time updates
         let timeChange = -(velocity / 60) * (Double(currentTimeSpan.hours) / (2 * .pi))
         updateTime(by: timeChange)
+        evaluateSelectionCandidate()
         
         if abs(velocity) < 0.01 {
             velocity = 0
@@ -400,7 +773,7 @@ struct CircularTimelineView: View {
     }
     
     // MARK: - Time Management
-    private func updateTime(by hours: Double) {
+    private func updateTime(by hours: Double, evaluateSelection: Bool = true) {
         currentTimeOffset += hours
         
         // Handle day transitions
@@ -423,6 +796,273 @@ struct CircularTimelineView: View {
                 updateInteractionsForCurrentDate()
             }
         }
+
+        updateTickIndex()
+
+        if evaluateSelection {
+            evaluateSelectionCandidate()
+        }
+    }
+
+    private func ensureSelectionCardVisible(_ visible: Bool) {
+        guard cardVisible != visible else { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            cardVisible = visible
+        }
+    }
+
+    private func clearSelection() {
+        ensureSelectionCardVisible(false)
+        selectedAvatar = nil
+        pendingCandidate = nil
+        candidateHoldStart = nil
+        detailInteraction = nil
+    }
+
+    private func evaluateSelectionCandidate() {
+        guard !isSnappingToSelection else { return }
+        guard !interactions.isEmpty else { return }
+
+        if let selection = selectedAvatar {
+            let currentAngle = normalizedAngle(selection.baseAngle + rotationAngle.radians)
+            let delta = normalizedAngle(currentAngle - northAngle)
+            if abs(delta) > selectionReleaseThreshold {
+                clearSelection()
+            }
+        }
+
+        guard let candidate = nearestAvatarCandidate() else { return }
+
+        let adjustedAngle = normalizedAngle(candidate.baseAngle + rotationAngle.radians)
+        let deltaToNorth = normalizedAngle(adjustedAngle - northAngle)
+
+        if abs(deltaToNorth) <= selectionThreshold {
+            if let pending = pendingCandidate, pending == candidate {
+                if let start = candidateHoldStart {
+                    if Date().timeIntervalSince(start) >= selectionHoldDuration {
+                        if selectedAvatar != candidate {
+                            lockSelection(for: candidate, deltaToNorth: deltaToNorth)
+                        } else {
+                            ensureSelectionCardVisible(true)
+                        }
+                    }
+                } else {
+                    candidateHoldStart = Date()
+                }
+            } else {
+                pendingCandidate = candidate
+                candidateHoldStart = Date()
+            }
+        } else {
+            pendingCandidate = nil
+            candidateHoldStart = nil
+        }
+    }
+
+    private func lockSelection(for candidate: AvatarCandidate, deltaToNorth: Double) {
+        isSnappingToSelection = true
+        pendingCandidate = nil
+        candidateHoldStart = nil
+        selectedAvatar = candidate
+        selectionFeedback.prepare()
+
+        let adjustment = -deltaToNorth
+        let timeChange = -adjustment * (Double(currentTimeSpan.hours) / (2 * .pi))
+
+        withAnimation(.interpolatingSpring(stiffness: 90, damping: 14)) {
+            rotationAngle = rotationAngle + Angle(radians: adjustment)
+        }
+
+        updateTime(by: timeChange, evaluateSelection: false)
+        selectionFeedback.selectionChanged()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isSnappingToSelection = false
+            ensureSelectionCardVisible(true)
+            evaluateSelectionCandidate()
+        }
+    }
+
+    private func nearestAvatarCandidate() -> AvatarCandidate? {
+        var closest: AvatarCandidate?
+        var smallestDelta = Double.greatestFiniteMagnitude
+
+        for interaction in interactions {
+            for (index, person) in interaction.participants.enumerated() {
+                let angle = baseAngle(for: interaction, participantIndex: index)
+                let adjusted = normalizedAngle(angle + rotationAngle.radians)
+                let delta = abs(normalizedAngle(adjusted - northAngle))
+                if delta < smallestDelta {
+                    smallestDelta = delta
+                    closest = AvatarCandidate(
+                        interaction: interaction,
+                        person: person,
+                        participantIndex: index,
+                        baseAngle: angle
+                    )
+                }
+            }
+        }
+
+        return closest
+    }
+
+    private func handleSelectionAction(_ action: SelectionCardAction) {
+        guard let selection = selectedAvatar else { return }
+        actionFeedback.prepare()
+        actionFeedback.impactOccurred(intensity: 0.8)
+        switch action {
+        case .call:
+            attemptCall(to: selection.person)
+        case .message:
+            attemptMessage(to: selection.person)
+        case .openDetails:
+            detailInteraction = selection.interaction
+        }
+    }
+
+    private func attemptCall(to person: Person) {
+        guard let phone = person.phoneNumber else {
+            actionError = ActionError(message: "No phone number on file for \(person.name).")
+            return
+        }
+        let digits = sanitizedDigits(from: phone)
+        guard !digits.isEmpty, let url = URL(string: "tel://\(digits)") else {
+            actionError = ActionError(message: "Unable to start a call to \(formattedPhoneDisplay(from: phone)).")
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { success in
+            if !success {
+                actionError = ActionError(message: "Call failed to start for \(formattedPhoneDisplay(from: phone)).")
+            }
+        }
+    }
+
+    private func attemptMessage(to person: Person) {
+        if let phone = person.phoneNumber {
+            let digits = sanitizedDigits(from: phone)
+            if let smsURL = URL(string: "sms:\(digits)"), !digits.isEmpty {
+                UIApplication.shared.open(smsURL, options: [:]) { success in
+                    if !success {
+                        actionError = ActionError(message: "Message could not be started for \(formattedPhoneDisplay(from: phone)).")
+                    }
+                }
+                return
+            }
+        }
+
+        if let handle = person.messageHandle, let mailURL = URL(string: "mailto:\(handle)") {
+            UIApplication.shared.open(mailURL, options: [:]) { success in
+                if !success {
+                    actionError = ActionError(message: "Unable to compose message for \(person.name).")
+                }
+            }
+        } else {
+            actionError = ActionError(message: "No messaging info available for \(person.name).")
+        }
+    }
+
+    private func contactDetail(for person: Person) -> String {
+        if let phone = person.phoneNumber {
+            return formattedPhoneDisplay(from: phone)
+        }
+        if let handle = person.messageHandle {
+            return handle
+        }
+        return person.initial
+    }
+
+    private func formattedPhoneDisplay(from phone: String) -> String {
+        let digits = sanitizedDigits(from: phone)
+        guard digits.count == 10 else { return phone }
+        let area = digits.prefix(3)
+        let middle = digits.dropFirst(3).prefix(3)
+        let last = digits.suffix(4)
+        return "(\(area)) \(middle)-\(last)"
+    }
+
+    private func sanitizedDigits(from string: String) -> String {
+        string.filter { $0.isNumber }
+    }
+
+    private func updateTickIndex() {
+        let currentIndex = currentTickIndex()
+        if let previous = lastTickIndex {
+            if previous != currentIndex {
+                tickFeedback.prepare()
+                tickFeedback.impactOccurred(intensity: 0.45)
+                lastTickIndex = currentIndex
+            }
+        } else {
+            lastTickIndex = currentIndex
+        }
+    }
+
+    private func currentTickIndex() -> Int {
+        let interval = max(1, currentTimeSpan.hourInterval)
+        let normalizedOffset = normalizedTimeOffset()
+        return Int(floor(normalizedOffset / Double(interval)))
+    }
+
+    private func normalizedTimeOffset() -> Double {
+        let span = Double(currentTimeSpan.hours)
+        var offset = currentTimeOffset
+        while offset < 0 { offset += span }
+        while offset >= span { offset -= span }
+        return offset
+    }
+
+    private func baseAngle(for interaction: TimeInteraction, participantIndex: Int) -> Double {
+        angleForInteraction(interaction) + Double(participantIndex) * overlapAngle * (.pi / 180)
+    }
+
+    private func angleForInteraction(_ interaction: TimeInteraction) -> Double {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: interaction.startTime)
+        let minute = calendar.component(.minute, from: interaction.startTime)
+
+        switch currentTimeSpan {
+        case .sixHours:
+            let windowStart = windowStartHour(for: currentTimeSpan, relativeTo: currentDate)
+            let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
+            return (hoursFromStart / 6.0) * 2 * .pi - .pi/2
+        case .twelveHours:
+            let windowStart = windowStartHour(for: currentTimeSpan, relativeTo: currentDate)
+            let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
+            return (hoursFromStart / 12.0) * 2 * .pi - .pi/2
+        case .twentyFourHours:
+            let totalMinutes = Double(hour * 60 + minute)
+            return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
+        case .threeDays:
+            let totalMinutes = Double(hour * 60 + minute)
+            let spanMinutes = Double(72 * 60)
+            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
+        case .sevenDays:
+            let totalMinutes = Double(hour * 60 + minute)
+            let spanMinutes = Double(currentTimeSpan.hours * 60)
+            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
+        }
+    }
+
+    private func windowStartHour(for span: TimeSpan, relativeTo date: Date) -> Int {
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: date)
+
+        switch span {
+        case .sixHours:
+            return (currentHour / 6) * 6
+        case .twelveHours:
+            return (currentHour / 12) * 12
+        default:
+            return 0
+        }
+    }
+
+    private func normalizedAngle(_ angle: Double) -> Double {
+        var value = angle
+        while value <= -Double.pi { value += 2 * Double.pi }
+        while value > Double.pi { value -= 2 * Double.pi }
+        return value
     }
     
     private func getCurrentTimeDisplay() -> String {
@@ -532,12 +1172,16 @@ struct CircularTimelineView: View {
     }
     
     private func updateInteractionsForCurrentDate() {
+        clearSelection()
+        lastTickIndex = nil
         // This would typically fetch new data for the current date
         // For now, we'll just update the sample data
         setupSampleData()
         
         // Also update adjacent intervals
         updateAdjacentIntervals()
+        evaluateSelectionCandidate()
+        updateTickIndex()
     }
     
     private func updateAdjacentIntervals() {
@@ -593,23 +1237,34 @@ struct CircularTimelineView: View {
         let calendar = Calendar.current
         let dayOfWeek = calendar.component(.weekday, from: date)
         let dayOfMonth = calendar.component(.day, from: date)
-        
+
+        func samplePerson(_ name: String, initial: String, index: Int) -> Person {
+            let digits = String(format: "55501%05d", index)
+            let handleBase = name.lowercased().replacingOccurrences(of: " ", with: "")
+            return Person(
+                name: name,
+                initial: initial,
+                phoneNumber: digits,
+                messageHandle: "\(handleBase)@timeline.app"
+            )
+        }
+
         // Create people
-        let sarah = Person(name: "Sarah", initial: "S")
-        let mike = Person(name: "Mike", initial: "M")
-        let alex = Person(name: "Alex", initial: "A")
-        let emma = Person(name: "Emma", initial: "E")
-        let jake = Person(name: "Jake", initial: "J")
-        let lisa = Person(name: "Lisa", initial: "L")
-        let david = Person(name: "David", initial: "D")
-        let chris = Person(name: "Chris", initial: "C")
-        let maya = Person(name: "Maya", initial: "Y")
-        let tom = Person(name: "Tom", initial: "T")
-        let nina = Person(name: "Nina", initial: "N")
-        let sam = Person(name: "Sam", initial: "R")
-        let kate = Person(name: "Kate", initial: "K")
-        let ben = Person(name: "Ben", initial: "B")
-        let olivia = Person(name: "Olivia", initial: "O")
+        let sarah = samplePerson("Sarah", initial: "S", index: 1)
+        let mike = samplePerson("Mike", initial: "M", index: 2)
+        let alex = samplePerson("Alex", initial: "A", index: 3)
+        let emma = samplePerson("Emma", initial: "E", index: 4)
+        let jake = samplePerson("Jake", initial: "J", index: 5)
+        let lisa = samplePerson("Lisa", initial: "L", index: 6)
+        let david = samplePerson("David", initial: "D", index: 7)
+        let chris = samplePerson("Chris", initial: "C", index: 8)
+        let maya = samplePerson("Maya", initial: "Y", index: 9)
+        let tom = samplePerson("Tom", initial: "T", index: 10)
+        let nina = samplePerson("Nina", initial: "N", index: 11)
+        let sam = samplePerson("Sam", initial: "R", index: 12)
+        let kate = samplePerson("Kate", initial: "K", index: 13)
+        let ben = samplePerson("Ben", initial: "B", index: 14)
+        let olivia = samplePerson("Olivia", initial: "O", index: 15)
         
         var interactions: [TimeInteraction] = []
         
