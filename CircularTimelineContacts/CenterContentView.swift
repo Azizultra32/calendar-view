@@ -95,6 +95,8 @@ struct CenterContentView: View {
             return formatTimeRange(startHour, endHour)
         case .twentyFourHours:
             return "1D"
+        case .threeDays:
+            return "3D"
         case .sevenDays:
             return "7D"
         }

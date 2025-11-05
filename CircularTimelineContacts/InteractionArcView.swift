@@ -44,7 +44,7 @@ struct InteractionArcView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
-        case .sevenDays:
+        case .threeDays, .sevenDays:
             // For multi-day views, we need to calculate based on the full span
             let totalMinutes = Double(hour * 60 + minute)
             let spanMinutes = Double(timeSpan.hours * 60)

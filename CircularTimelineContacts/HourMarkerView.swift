@@ -46,6 +46,14 @@ struct HourMarkerView: View {
             if hour < 12 { return "\(hour)AM" }
             if hour == 12 { return "12PM" }
             return "\(hour - 12)PM"
+        case .threeDays:
+            let dayIndex = max(0, min(2, hour / 24))
+            let dayLabels = ["Day 1", "Day 2", "Day 3"]
+            let hourOfDay = hour % 24
+            if hourOfDay == 0 { return dayLabels[dayIndex] }
+            let period = hourOfDay < 12 ? "AM" : "PM"
+            let displayHour = hourOfDay % 12 == 0 ? 12 : hourOfDay % 12
+            return "\(dayLabels[dayIndex]) \(displayHour)\(period)"
         case .sevenDays:
             let day = hour / 24
             let dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

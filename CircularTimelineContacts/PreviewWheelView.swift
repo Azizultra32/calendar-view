@@ -99,7 +99,7 @@ struct PreviewDotView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
-        case .sevenDays:
+        case .threeDays, .sevenDays:
             let totalMinutes = Double(hour * 60 + minute)
             let spanMinutes = Double(timeSpan.hours * 60)
             return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
