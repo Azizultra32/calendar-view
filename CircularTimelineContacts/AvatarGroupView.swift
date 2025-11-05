@@ -27,7 +27,6 @@ struct AvatarGroupView: View {
                         .fill(interaction.color)
                         .overlay(Circle().stroke(Color.white, lineWidth: 2))
                 )
-                .rotationEffect(-rotation) // Counter-rotate to stay upright
                 .position(x: x, y: y)
                 .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
