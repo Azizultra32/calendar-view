@@ -8,15 +8,26 @@ struct AvatarGroupView: View {
     let rotation: Angle
     let timeSpan: TimeSpan
     let currentDate: Date
+    let isInteractionSelected: Bool
+    let selectedParticipantIndex: Int?
     
     var body: some View {
         ForEach(Array(interaction.participants.enumerated()), id: \.element.id) { index, person in
             let baseAngle = avatarAngle(for: index)
             let rotatedAngle = baseAngle + rotation.radians
             let center = CGPoint(x: containerSize/2, y: containerSize/2)
+            let isSelectedParticipant = isInteractionSelected && selectedParticipantIndex == index
             let x = center.x + cos(rotatedAngle) * radius
             let y = center.y + sin(rotatedAngle) * radius
-            
+
+            let fillOpacity: Double = isSelectedParticipant ? 1.0 : 0.18
+            let strokeOpacity: Double = isSelectedParticipant ? 1.0 : 0.0
+            let strokeWidth: CGFloat = isSelectedParticipant ? 3 : 0
+            let scale: CGFloat = isSelectedParticipant ? 1.07 : 1.0
+            let shadowRadius: CGFloat = isSelectedParticipant ? 4.0 : 0
+            let shadowYOffset: CGFloat = isSelectedParticipant ? 1.2 : 0
+            let zIndexValue: Double = isSelectedParticipant ? 10.0 : Double(index) * 0.00001
+
             // Single avatar with both circle and text
             Text(person.initial)
                 .font(.system(size: 12, weight: .bold))
@@ -24,10 +35,18 @@ struct AvatarGroupView: View {
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(interaction.color)
-                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                        .fill(interaction.color.opacity(fillOpacity))
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(strokeOpacity), lineWidth: strokeWidth)
+                                .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.4 : 0), radius: shadowRadius)
+                        )
                 )
                 .position(x: x, y: y)
+                .scaleEffect(scale)
+                .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.25 : 0), radius: shadowRadius, x: 0, y: shadowYOffset)
+                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.16), value: isSelectedParticipant)
+                .zIndex(zIndexValue)
                 .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
         .frame(width: containerSize, height: containerSize)
@@ -86,4 +105,5 @@ struct AvatarGroupView: View {
         
         return interaction.startTime >= startOfTimeSpan
     }
+
 }

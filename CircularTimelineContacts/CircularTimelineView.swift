@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Models
 struct TimeInteraction: Identifiable {
@@ -75,6 +76,13 @@ struct CircularTimelineView: View {
     @State private var horizontalOffset: CGFloat = 0
     @State private var isNavigating = false
     @State private var navigationDirection: NavigationDirection = .none
+    @State private var selectedAvatar: SelectedAvatar? = nil
+    @State private var hapticGenerator = UIImpactFeedbackGenerator(style: .rigid)
+
+    private struct SelectedAvatar: Equatable {
+        let interactionID: UUID
+        let participantIndex: Int
+    }
     
     enum NavigationDirection {
         case previous
@@ -86,6 +94,8 @@ struct CircularTimelineView: View {
     private let avatarDiameter: CGFloat = 28
     private let circleRadius: CGFloat = 120
     private let containerSize: CGFloat = 300  // Total size of the view
+    private let snapVelocityThreshold: Double = 0.18
+    private let snapAngleThreshold: Double = .pi / 60 // ~3° window to snap
     
     private var touchAngleDegrees: Double {
         (Double(avatarDiameter) / Double(circleRadius)) * (180 / .pi) // 13.4°
@@ -209,6 +219,7 @@ struct CircularTimelineView: View {
                                 ZStack {
                                     // Interaction arcs
                                     ForEach(interactions) { interaction in
+                                        let isSelectedInteraction = selectedAvatar?.interactionID == interaction.id
                                         InteractionArcView(
                                             interaction: interaction,
                                             radius: circleRadius,
@@ -216,8 +227,8 @@ struct CircularTimelineView: View {
                                             timeSpan: currentTimeSpan,
                                             currentDate: currentDate
                                         )
-                                        .opacity(navigationDirection == .none ? 1.0 : 0.5)
-                                        .scaleEffect(navigationDirection == .none ? 1.0 : 0.95)
+                                        .opacity(navigationDirection == .none ? (isSelectedInteraction ? 1.0 : 0.2) : 0.45)
+                                        .scaleEffect(navigationDirection == .none ? (isSelectedInteraction ? 1.015 : 1.0) : 0.95)
                                     }
                                 }
                                 .frame(width: containerSize, height: containerSize)
@@ -225,6 +236,8 @@ struct CircularTimelineView: View {
                                 
                                 // Avatar components (positioned independently)
                                 ForEach(interactions) { interaction in
+                                    let isSelectedInteraction = selectedAvatar?.interactionID == interaction.id
+                                    let selectedParticipantIndex = isSelectedInteraction ? selectedAvatar?.participantIndex : nil
                                     AvatarGroupView(
                                         interaction: interaction,
                                         radius: circleRadius,
@@ -232,10 +245,12 @@ struct CircularTimelineView: View {
                                         overlapAngle: overlapAngle,
                                         rotation: rotationAngle,
                                         timeSpan: currentTimeSpan,
-                                        currentDate: currentDate
+                                        currentDate: currentDate,
+                                        isInteractionSelected: isSelectedInteraction,
+                                        selectedParticipantIndex: selectedParticipantIndex
                                     )
-                                    .opacity(navigationDirection == .none ? 1.0 : 0.3)
-                                    .scaleEffect(navigationDirection == .none ? 1.0 : 0.9)
+                                    .opacity(navigationDirection == .none ? (isSelectedInteraction ? 1.0 : 0.45) : 0.3)
+                                    .scaleEffect(navigationDirection == .none ? (isSelectedInteraction ? 1.05 : 1.0) : 0.9)
                                 }
                                 
                                 // Hour markers (stay level) - dynamic based on time span
@@ -305,6 +320,7 @@ struct CircularTimelineView: View {
             }
         }
         .onAppear {
+            hapticGenerator.prepare()
             setupSampleData()
         }
         .onReceive(Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()) { _ in
@@ -318,6 +334,9 @@ struct CircularTimelineView: View {
     var rotationGesture: some Gesture {
         DragGesture()
             .onChanged { value in
+                if !isDragging {
+                    selectedAvatar = nil
+                }
                 isDragging = true
                 
                 let center = CGPoint(x: containerSize/2, y: containerSize/2)
@@ -337,14 +356,7 @@ struct CircularTimelineView: View {
                     delta = delta + (2.0 * .pi)
                 }
                 
-                let deltaAngle = Angle(radians: delta)
-                rotationAngle = rotationAngle + deltaAngle
-                
-                // Convert rotation to time change
-                // Clockwise (negative delta) = backwards in time
-                // Counterclockwise (positive delta) = forwards in time
-                let timeChange = -delta * (Double(currentTimeSpan.hours) / (2 * .pi))
-                updateTime(by: timeChange)
+                applyRotationDelta(delta)
                 
                 velocity = delta * 60.0 // Convert to per-second
                 lastAngle = Angle(radians: currentAngle)
@@ -352,6 +364,9 @@ struct CircularTimelineView: View {
             .onEnded { _ in
                 isDragging = false
                 lastAngle = .zero
+                if abs(velocity) < snapVelocityThreshold {
+                    attemptSnapToNearestInteraction()
+                }
             }
     }
     
@@ -365,19 +380,119 @@ struct CircularTimelineView: View {
         guard !isDragging && abs(velocity) > 0.01 else { return }
         
         // Apply friction
-        velocity *= 0.95
-        
+        velocity *= 0.92
+
         // Continue rotating
-        let deltaAngle = Angle(radians: velocity / 60)
-        rotationAngle = rotationAngle + deltaAngle
+        applyRotationDelta(velocity / 60)
         
-        // Continue time updates
-        let timeChange = -(velocity / 60) * (Double(currentTimeSpan.hours) / (2 * .pi))
-        updateTime(by: timeChange)
-        
-        if abs(velocity) < 0.01 {
+        if abs(velocity) < snapVelocityThreshold {
             velocity = 0
+            attemptSnapToNearestInteraction()
         }
+    }
+    
+    private func applyRotationDelta(_ delta: Double, animation: Animation? = nil) {
+        guard delta != 0 else { return }
+        let newAngle = rotationAngle + Angle(radians: delta)
+        let timeChange = -delta * (Double(currentTimeSpan.hours) / (2 * .pi))
+        if let animation {
+            withAnimation(animation) {
+                rotationAngle = newAngle
+            }
+        } else {
+            rotationAngle = newAngle
+        }
+        updateTime(by: timeChange)
+    }
+    
+    private func attemptSnapToNearestInteraction() {
+        guard !isDragging else { return }
+        velocity = 0
+        let rotationRadians = rotationAngle.radians
+        let northAngle = -Double.pi / 2
+        var closestMatch: (interaction: TimeInteraction, participantIndex: Int, delta: Double)?
+        
+        for interaction in interactions {
+            for index in interaction.participants.indices {
+                let baseAngle = angleForAvatar(in: interaction, participantIndex: index)
+                let rotatedAngle = baseAngle + rotationRadians
+                let delta = minimalAngleDifference(rotatedAngle, northAngle)
+                if abs(delta) <= snapAngleThreshold {
+                    if let current = closestMatch {
+                        if abs(delta) < abs(current.delta) {
+                            closestMatch = (interaction, index, delta)
+                        }
+                    } else {
+                        closestMatch = (interaction, index, delta)
+                    }
+                }
+            }
+        }
+        
+        guard let match = closestMatch else {
+            selectedAvatar = nil
+            return
+        }
+        
+        if let currentSelection = selectedAvatar,
+           currentSelection.interactionID == match.interaction.id,
+           currentSelection.participantIndex == match.participantIndex,
+           abs(match.delta) < 0.001 {
+            return
+        }
+
+        let deltaToApply = -match.delta
+        if abs(deltaToApply) > 0.0001 {
+            let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.16)
+            applyRotationDelta(deltaToApply, animation: snapAnimation)
+        }
+        selectedAvatar = SelectedAvatar(
+            interactionID: match.interaction.id,
+            participantIndex: match.participantIndex
+        )
+        triggerSelectionHaptic()
+    }
+    
+    private func angleForInteraction(_ interaction: TimeInteraction) -> Double {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: interaction.startTime)
+        let minute = calendar.component(.minute, from: interaction.startTime)
+        
+        switch currentTimeSpan {
+        case .sixHours:
+            let currentHour = calendar.component(.hour, from: currentDate)
+            let windowStart = (currentHour / 6) * 6
+            let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
+            return (hoursFromStart / 6.0) * 2 * .pi - .pi/2
+        case .twelveHours:
+            let currentHour = calendar.component(.hour, from: currentDate)
+            let windowStart = (currentHour / 12) * 12
+            let hoursFromStart = Double(hour - windowStart) + Double(minute) / 60.0
+            return (hoursFromStart / 12.0) * 2 * .pi - .pi/2
+        case .twentyFourHours:
+            let totalMinutes = Double(hour * 60 + minute)
+            return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
+        case .threeDays, .sevenDays:
+            let totalMinutes = Double(hour * 60 + minute)
+            let spanMinutes = Double(currentTimeSpan.hours * 60)
+            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
+        }
+    }
+
+    private func angleForAvatar(in interaction: TimeInteraction, participantIndex: Int) -> Double {
+        let baseAngle = angleForInteraction(interaction)
+        let overlapRadians = overlapAngle * (.pi / 180)
+        return baseAngle + Double(participantIndex) * overlapRadians
+    }
+
+    private func minimalAngleDifference(_ angle1: Double, _ angle2: Double) -> Double {
+        let difference = angle1 - angle2
+        return atan2(sin(difference), cos(difference))
+    }
+
+    private func triggerSelectionHaptic() {
+        hapticGenerator.prepare()
+        hapticGenerator.impactOccurred(intensity: 0.85)
     }
     
     // MARK: - Time Management
@@ -516,6 +631,7 @@ struct CircularTimelineView: View {
         // This would typically fetch new data for the current date
         // For now, we'll just update the sample data
         setupSampleData()
+        selectedAvatar = nil
         
         // Also update adjacent intervals
         updateAdjacentIntervals()
