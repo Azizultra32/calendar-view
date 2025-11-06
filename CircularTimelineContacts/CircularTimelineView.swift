@@ -98,10 +98,10 @@ struct CircularTimelineView: View {
     private let circleRadius: CGFloat = 120
     private let containerSize: CGFloat = 300  // Total size of the view
     private let snapVelocityThreshold: Double = 0.18
-    private let snapAngleThreshold: Double = .pi / 60 // ~3° window to snap
-    private let passbyAngleWindow: Double = .pi / 90 // ~2° window to lightly tap on pass-by
+    private let snapAngleThreshold: Double = .pi / 72 // ~2.5° window to snap
+    private let passbyAngleWindow: Double = .pi / 140 // ~1.29° window to lightly tap on pass-by
     private let passbyVelocityGuard: Double = 0.02
-    private let passbyCooldown: TimeInterval = 0.15
+    private let passbyCooldown: TimeInterval = 0.11
     
     private var touchAngleDegrees: Double {
         (Double(avatarDiameter) / Double(circleRadius)) * (180 / .pi) // 13.4°
@@ -387,8 +387,8 @@ struct CircularTimelineView: View {
     private func applyMomentum() {
         guard !isDragging && abs(velocity) > 0.01 else { return }
         
-        // Apply friction (balanced glide)
-        velocity *= 0.945
+        // Apply friction (crisper glide)
+        velocity *= 0.94
 
         // Continue rotating
         applyRotationDelta(velocity / 60)
@@ -494,7 +494,7 @@ struct CircularTimelineView: View {
 
         let deltaToApply = -match.delta
         if abs(deltaToApply) > 0.0001 {
-            let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.12)
+            let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.11)
             applyRotationDelta(deltaToApply, animation: snapAnimation)
         }
         selectedAvatar = SelectedAvatar(

@@ -45,7 +45,7 @@ struct AvatarGroupView: View {
                 .position(x: x, y: y)
                 .scaleEffect(scale)
                 .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.25 : 0), radius: shadowRadius, x: 0, y: shadowYOffset)
-                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.10), value: isSelectedParticipant)
+                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.08), value: isSelectedParticipant)
                 .zIndex(zIndexValue)
                 .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
