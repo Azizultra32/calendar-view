@@ -35,6 +35,7 @@ struct CenterContentView: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(Color.gray.opacity(0.6))
         }
+        .brightness(0.2) // Make it brighter to stand out from dark background
         .offset(y: dragOffset)
         .scaleEffect(isZooming || isNavigating ? 0.95 : 1.0)
         .gesture(

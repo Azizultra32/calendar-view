@@ -29,6 +29,12 @@ struct AvatarGroupView: View {
             let zIndexValue: Double = isSelectedParticipant ? 10.0 : Double(index) * 0.00001
 
             // Single avatar with both circle and text
+            let isSelected = interaction.id == selectedInteractionID && person.id == selectedPersonID
+            let isSelectionActive = selectedInteractionID != nil && selectedPersonID != nil
+            let baseOpacity = shouldShowAvatar(for: interaction) ? 1.0 : 0.3
+            let finalOpacity = isSelected ? 1.0 : (isSelectionActive ? baseOpacity * 0.45 : baseOpacity)
+            let scale = isSelected ? 1.18 : 1.0
+
             Text(person.initial)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.white)

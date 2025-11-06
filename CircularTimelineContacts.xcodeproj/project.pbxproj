@@ -17,9 +17,18 @@
 		1A00000F1A0000010000001 /* HourMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000101A0000010000001 /* HourMarkerView.swift */; };
 		1A0000111A0000010000001 /* PreviewWheelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000121A0000010000001 /* PreviewWheelView.swift */; };
 		1A0000131A0000010000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000141A0000010000001 /* Assets.xcassets */; };
+		1C5CCE4F2C484898B745C14F /* InteractionCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0EE29182CC4173AD11C2D2 /* InteractionCategory.swift */; };
+		1F98D667B5604B18AD01F346 /* Contact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0DA2D4333541F99A848370 /* Contact.swift */; };
+		48C2BDF684A544F8A9227AB8 /* Note.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE27975EE5C3413291628478 /* Note.swift */; };
+		623EDB53927448EFA3D7457B /* DataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 715CE2A1234D4074995EE3C9 /* DataManager.swift */; };
+		9D322B41F64B418482308B56 /* Interaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52EE210A9694A36B4357491 /* Interaction.swift */; };
+		A9FFC206B5AD439BB4646432 /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12FD629B80447989481F9DC /* Location.swift */; };
+		D351857535B446EE8B861AB2 /* SocialMediaHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605695D38ADA46D49584279D /* SocialMediaHandler.swift */; };
+		F0C7893768F949F3992B946D /* ValueTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04C73D2665F14BED937F5A9C /* ValueTypes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		04C73D2665F14BED937F5A9C /* ValueTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValueTypes.swift; sourceTree = "<group>"; };
 		1A0000001A0000010000001 /* CircularTimelineContacts.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CircularTimelineContacts.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000021A0000010000001 /* CircularTimelineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularTimelineApp.swift; sourceTree = "<group>"; };
 		1A0000041A0000010000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -32,6 +41,13 @@
 		1A0000121A0000010000001 /* PreviewWheelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewWheelView.swift; sourceTree = "<group>"; };
 		1A0000141A0000010000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A0000151A0000010000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2D0EE29182CC4173AD11C2D2 /* InteractionCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionCategory.swift; sourceTree = "<group>"; };
+		5B0DA2D4333541F99A848370 /* Contact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Contact.swift; sourceTree = "<group>"; };
+		605695D38ADA46D49584279D /* SocialMediaHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialMediaHandler.swift; sourceTree = "<group>"; };
+		715CE2A1234D4074995EE3C9 /* DataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataManager.swift; sourceTree = "<group>"; };
+		C12FD629B80447989481F9DC /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
+		D52EE210A9694A36B4357491 /* Interaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interaction.swift; sourceTree = "<group>"; };
+		FE27975EE5C3413291628478 /* Note.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Note.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +79,14 @@
 				1A00000E1A0000010000001 /* CenterContentView.swift */,
 				1A0000101A0000010000001 /* HourMarkerView.swift */,
 				1A0000121A0000010000001 /* PreviewWheelView.swift */,
+				5B0DA2D4333541F99A848370 /* Contact.swift */,
+				D52EE210A9694A36B4357491 /* Interaction.swift */,
+				2D0EE29182CC4173AD11C2D2 /* InteractionCategory.swift */,
+				C12FD629B80447989481F9DC /* Location.swift */,
+				FE27975EE5C3413291628478 /* Note.swift */,
+				04C73D2665F14BED937F5A9C /* ValueTypes.swift */,
+				605695D38ADA46D49584279D /* SocialMediaHandler.swift */,
+				715CE2A1234D4074995EE3C9 /* DataManager.swift */,
 				1A0000141A0000010000001 /* Assets.xcassets */,
 				1A0000151A0000010000001 /* Info.plist */,
 			);
@@ -103,7 +127,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1540;
-				LastUpgradeCheck = 1540;
+				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					1A00001A1A0000010000001 = {
 						CreatedOnToolsVersion = 15.4;
@@ -150,6 +174,14 @@
 				1A00000D1A0000010000001 /* CenterContentView.swift in Sources */,
 				1A00000F1A0000010000001 /* HourMarkerView.swift in Sources */,
 				1A0000111A0000010000001 /* PreviewWheelView.swift in Sources */,
+				1F98D667B5604B18AD01F346 /* Contact.swift in Sources */,
+				9D322B41F64B418482308B56 /* Interaction.swift in Sources */,
+				1C5CCE4F2C484898B745C14F /* InteractionCategory.swift in Sources */,
+				A9FFC206B5AD439BB4646432 /* Location.swift in Sources */,
+				48C2BDF684A544F8A9227AB8 /* Note.swift in Sources */,
+				F0C7893768F949F3992B946D /* ValueTypes.swift in Sources */,
+				D351857535B446EE8B861AB2 /* SocialMediaHandler.swift in Sources */,
+				623EDB53927448EFA3D7457B /* DataManager.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */
@@ -190,6 +222,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 36MTPB2S53;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -213,6 +246,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -253,6 +287,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 36MTPB2S53;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -269,6 +304,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -282,7 +318,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 36MTPB2S53;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CircularTimelineContacts/Info.plist;
@@ -313,7 +348,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 36MTPB2S53;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CircularTimelineContacts/Info.plist;
