@@ -94,6 +94,11 @@ iOSInjectionProject/
 .AppleDouble
 .LSOverride
 
+# Local tooling artifacts
+.claude/
+calendar-view/
+xcodebuild.log
+
 # Icon must end with two \r
 Icon
 

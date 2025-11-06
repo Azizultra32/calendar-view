@@ -6,6 +6,11 @@ struct InteractionArcView: View {
     let center: CGPoint
     let timeSpan: TimeSpan
     let currentDate: Date
+    let isHighlighted: Bool
+    let isHighlighted: Bool
+    
+    private var lineWidth: CGFloat { isHighlighted ? 10 : 7 }
+    private var arcOpacity: Double { isHighlighted ? 1.0 : 0.85 }
     
     var body: some View {
         let startAngle = angleFromTime(interaction.startTime)
@@ -20,7 +25,8 @@ struct InteractionArcView: View {
                 clockwise: false
             )
         }
-        .stroke(interaction.color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+        .stroke(interaction.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        .animation(.easeOut(duration: 0.12), value: isHighlighted)
     }
     
     private func angleFromTime(_ time: Date) -> Double {
@@ -44,12 +50,7 @@ struct InteractionArcView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
-        case .threeDays:
-            // For 3-day view, calculate position across 72 hours
-            let totalMinutes = Double(hour * 60 + minute)
-            let spanMinutes = Double(72 * 60)
-            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
-        case .sevenDays:
+        case .threeDays, .sevenDays:
             // For multi-day views, we need to calculate based on the full span
             let totalMinutes = Double(hour * 60 + minute)
             let spanMinutes = Double(timeSpan.hours * 60)

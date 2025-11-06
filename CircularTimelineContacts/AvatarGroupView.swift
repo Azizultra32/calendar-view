@@ -8,17 +8,26 @@ struct AvatarGroupView: View {
     let rotation: Angle
     let timeSpan: TimeSpan
     let currentDate: Date
-    let selectedInteractionID: UUID?
-    let selectedPersonID: UUID?
+    let isInteractionSelected: Bool
+    let selectedParticipantIndex: Int?
     
     var body: some View {
         ForEach(Array(interaction.participants.enumerated()), id: \.element.id) { index, person in
             let baseAngle = avatarAngle(for: index)
             let rotatedAngle = baseAngle + rotation.radians
             let center = CGPoint(x: containerSize/2, y: containerSize/2)
+            let isSelectedParticipant = isInteractionSelected && selectedParticipantIndex == index
             let x = center.x + cos(rotatedAngle) * radius
             let y = center.y + sin(rotatedAngle) * radius
-            
+
+            let fillOpacity: Double = isSelectedParticipant ? 1.0 : 0.78
+            let strokeOpacity: Double = isSelectedParticipant ? 1.0 : 0.45
+            let strokeWidth: CGFloat = isSelectedParticipant ? 3 : 1.5
+            let scale: CGFloat = isSelectedParticipant ? 1.08 : 1.0
+            let shadowRadius: CGFloat = isSelectedParticipant ? 5.0 : 0
+            let shadowYOffset: CGFloat = isSelectedParticipant ? 1.4 : 0
+            let zIndexValue: Double = isSelectedParticipant ? 10.0 : Double(index) * 0.00001
+
             // Single avatar with both circle and text
             let isSelected = interaction.id == selectedInteractionID && person.id == selectedPersonID
             let isSelectionActive = selectedInteractionID != nil && selectedPersonID != nil
@@ -32,18 +41,19 @@ struct AvatarGroupView: View {
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(interaction.color)
+                        .fill(interaction.color.opacity(fillOpacity))
                         .overlay(
                             Circle()
-                                .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.7), lineWidth: isSelected ? 3 : 2)
-                                .shadow(color: isSelected ? interaction.color.opacity(0.6) : Color.clear, radius: isSelected ? 12 : 0)
+                                .stroke(Color.white.opacity(strokeOpacity), lineWidth: strokeWidth)
+                                .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.4 : 0), radius: shadowRadius)
                         )
-                        .shadow(color: interaction.color.opacity(isSelected ? 0.6 : 0.25), radius: isSelected ? 16 : 8)
                 )
-                .scaleEffect(scale)
                 .position(x: x, y: y)
-                .rotationEffect(-rotation) // Counter-rotate AFTER positioning to stay upright
-                .opacity(finalOpacity)
+                .scaleEffect(scale)
+                .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.25 : 0), radius: shadowRadius, x: 0, y: shadowYOffset)
+                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.08), value: isSelectedParticipant)
+                .zIndex(zIndexValue)
+                .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
         .frame(width: containerSize, height: containerSize)
     }
@@ -72,12 +82,7 @@ struct AvatarGroupView: View {
         case .twentyFourHours:
             let totalMinutes = Double(hour * 60 + minute)
             return (totalMinutes / (24 * 60)) * 2 * .pi - .pi/2
-        case .threeDays:
-            // For 3-day view, calculate position across 72 hours
-            let totalMinutes = Double(hour * 60 + minute)
-            let spanMinutes = Double(72 * 60)
-            return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
-        case .sevenDays:
+        case .threeDays, .sevenDays:
             // For multi-day views, we need to calculate based on the full span
             let totalMinutes = Double(hour * 60 + minute)
             let spanMinutes = Double(timeSpan.hours * 60)
@@ -106,4 +111,5 @@ struct AvatarGroupView: View {
         
         return interaction.startTime >= startOfTimeSpan
     }
+
 }
