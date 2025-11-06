@@ -78,6 +78,9 @@ struct CircularTimelineView: View {
     @State private var navigationDirection: NavigationDirection = .none
     @State private var selectedAvatar: SelectedAvatar? = nil
     @State private var hapticGenerator = UIImpactFeedbackGenerator(style: .rigid)
+    @State private var passbyHaptic = UIImpactFeedbackGenerator(style: .soft)
+    @State private var lastPassbyAvatar: SelectedAvatar? = nil
+    @State private var lastPassbyTime: Date = .distantPast
 
     private struct SelectedAvatar: Equatable {
         let interactionID: UUID
@@ -96,6 +99,9 @@ struct CircularTimelineView: View {
     private let containerSize: CGFloat = 300  // Total size of the view
     private let snapVelocityThreshold: Double = 0.18
     private let snapAngleThreshold: Double = .pi / 60 // ~3° window to snap
+    private let passbyAngleWindow: Double = .pi / 90 // ~2° window to lightly tap on pass-by
+    private let passbyVelocityGuard: Double = 0.02
+    private let passbyCooldown: TimeInterval = 0.15
     
     private var touchAngleDegrees: Double {
         (Double(avatarDiameter) / Double(circleRadius)) * (180 / .pi) // 13.4°
@@ -225,10 +231,11 @@ struct CircularTimelineView: View {
                                             radius: circleRadius,
                                             center: CGPoint(x: containerSize/2, y: containerSize/2),
                                             timeSpan: currentTimeSpan,
-                                            currentDate: currentDate
+                                            currentDate: currentDate,
+                                            isHighlighted: isSelectedInteraction
                                         )
-                                        .opacity(navigationDirection == .none ? (isSelectedInteraction ? 1.0 : 0.2) : 0.45)
-                                        .scaleEffect(navigationDirection == .none ? (isSelectedInteraction ? 1.015 : 1.0) : 0.95)
+                                        .opacity(navigationDirection == .none ? 1.0 : 0.55)
+                                        .scaleEffect(navigationDirection == .none ? (isSelectedInteraction ? 1.01 : 1.0) : 0.95)
                                     }
                                 }
                                 .frame(width: containerSize, height: containerSize)
@@ -249,8 +256,7 @@ struct CircularTimelineView: View {
                                         isInteractionSelected: isSelectedInteraction,
                                         selectedParticipantIndex: selectedParticipantIndex
                                     )
-                                    .opacity(navigationDirection == .none ? (isSelectedInteraction ? 1.0 : 0.45) : 0.3)
-                                    .scaleEffect(navigationDirection == .none ? (isSelectedInteraction ? 1.05 : 1.0) : 0.9)
+                                    .opacity(1.0)
                                 }
                                 
                                 // Hour markers (stay level) - dynamic based on time span
@@ -321,6 +327,7 @@ struct CircularTimelineView: View {
         }
         .onAppear {
             hapticGenerator.prepare()
+            passbyHaptic.prepare()
             setupSampleData()
         }
         .onReceive(Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()) { _ in
@@ -357,6 +364,7 @@ struct CircularTimelineView: View {
                 }
                 
                 applyRotationDelta(delta)
+                maybeTriggerPassbyHaptic()
                 
                 velocity = delta * 60.0 // Convert to per-second
                 lastAngle = Angle(radians: currentAngle)
@@ -379,16 +387,59 @@ struct CircularTimelineView: View {
     private func applyMomentum() {
         guard !isDragging && abs(velocity) > 0.01 else { return }
         
-        // Apply friction
-        velocity *= 0.92
+        // Apply friction (balanced glide)
+        velocity *= 0.945
 
         // Continue rotating
         applyRotationDelta(velocity / 60)
+        maybeTriggerPassbyHaptic()
         
         if abs(velocity) < snapVelocityThreshold {
             velocity = 0
             attemptSnapToNearestInteraction()
         }
+    }
+
+    // MARK: - Subtle pass-by haptic
+    private func maybeTriggerPassbyHaptic() {
+        // Only while rotating with enough movement; no zoom/nav animations
+        guard !isNavigating && !isZooming && abs(velocity) > passbyVelocityGuard else { return }
+
+        let rotationRadians = rotationAngle.radians
+        let northAngle = -Double.pi / 2
+
+        var best: (interaction: TimeInteraction, participantIndex: Int, delta: Double)?
+        for interaction in interactions {
+            for idx in interaction.participants.indices {
+                let baseAngle = angleForAvatar(in: interaction, participantIndex: idx)
+                let rotated = baseAngle + rotationRadians
+                let delta = minimalAngleDifference(rotated, northAngle)
+                if abs(delta) < abs(best?.delta ?? .pi) {
+                    best = (interaction, idx, delta)
+                }
+            }
+        }
+
+        guard let candidate = best else { return }
+
+        // Do not fire if we're in snap window or if this candidate is the currently selected avatar
+        if abs(candidate.delta) <= snapAngleThreshold { return }
+        if let sel = selectedAvatar,
+           sel.interactionID == candidate.interaction.id && sel.participantIndex == candidate.participantIndex { return }
+
+        // Only if within the pass-by window
+        guard abs(candidate.delta) <= passbyAngleWindow else { return }
+
+        // Throttle and avoid repeated taps for the same avatar without leaving the window
+        let now = Date()
+        if now.timeIntervalSince(lastPassbyTime) < passbyCooldown { return }
+        if let last = lastPassbyAvatar,
+           last.interactionID == candidate.interaction.id && last.participantIndex == candidate.participantIndex { return }
+
+        passbyHaptic.impactOccurred(intensity: 0.25)
+        passbyHaptic.prepare()
+        lastPassbyAvatar = SelectedAvatar(interactionID: candidate.interaction.id, participantIndex: candidate.participantIndex)
+        lastPassbyTime = now
     }
     
     private func applyRotationDelta(_ delta: Double, animation: Animation? = nil) {
@@ -443,7 +494,7 @@ struct CircularTimelineView: View {
 
         let deltaToApply = -match.delta
         if abs(deltaToApply) > 0.0001 {
-            let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.16)
+            let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.12)
             applyRotationDelta(deltaToApply, animation: snapAnimation)
         }
         selectedAvatar = SelectedAvatar(

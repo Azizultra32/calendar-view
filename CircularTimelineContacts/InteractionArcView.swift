@@ -6,6 +6,11 @@ struct InteractionArcView: View {
     let center: CGPoint
     let timeSpan: TimeSpan
     let currentDate: Date
+    let isHighlighted: Bool
+    let isHighlighted: Bool
+    
+    private var lineWidth: CGFloat { isHighlighted ? 10 : 7 }
+    private var arcOpacity: Double { isHighlighted ? 1.0 : 0.85 }
     
     var body: some View {
         let startAngle = angleFromTime(interaction.startTime)
@@ -20,7 +25,8 @@ struct InteractionArcView: View {
                 clockwise: false
             )
         }
-        .stroke(interaction.color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+        .stroke(interaction.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        .animation(.easeOut(duration: 0.12), value: isHighlighted)
     }
     
     private func angleFromTime(_ time: Date) -> Double {

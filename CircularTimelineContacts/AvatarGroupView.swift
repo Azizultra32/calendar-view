@@ -20,12 +20,12 @@ struct AvatarGroupView: View {
             let x = center.x + cos(rotatedAngle) * radius
             let y = center.y + sin(rotatedAngle) * radius
 
-            let fillOpacity: Double = isSelectedParticipant ? 1.0 : 0.18
-            let strokeOpacity: Double = isSelectedParticipant ? 1.0 : 0.0
-            let strokeWidth: CGFloat = isSelectedParticipant ? 3 : 0
-            let scale: CGFloat = isSelectedParticipant ? 1.07 : 1.0
-            let shadowRadius: CGFloat = isSelectedParticipant ? 4.0 : 0
-            let shadowYOffset: CGFloat = isSelectedParticipant ? 1.2 : 0
+            let fillOpacity: Double = isSelectedParticipant ? 1.0 : 0.78
+            let strokeOpacity: Double = isSelectedParticipant ? 1.0 : 0.45
+            let strokeWidth: CGFloat = isSelectedParticipant ? 3 : 1.5
+            let scale: CGFloat = isSelectedParticipant ? 1.08 : 1.0
+            let shadowRadius: CGFloat = isSelectedParticipant ? 5.0 : 0
+            let shadowYOffset: CGFloat = isSelectedParticipant ? 1.4 : 0
             let zIndexValue: Double = isSelectedParticipant ? 10.0 : Double(index) * 0.00001
 
             // Single avatar with both circle and text
@@ -45,7 +45,7 @@ struct AvatarGroupView: View {
                 .position(x: x, y: y)
                 .scaleEffect(scale)
                 .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.25 : 0), radius: shadowRadius, x: 0, y: shadowYOffset)
-                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.16), value: isSelectedParticipant)
+                .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.10), value: isSelectedParticipant)
                 .zIndex(zIndexValue)
                 .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
