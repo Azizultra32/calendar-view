@@ -438,6 +438,7 @@ struct CircularTimelineView: View {
     @State private var lastTickIndex: Int?
     @State private var actionError: ActionError?
     @State private var detailInteraction: TimeInteraction?
+    @State private var showingContactsManagement = false
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -696,6 +697,31 @@ struct CircularTimelineView: View {
                     .position(x: geometry.size.width / 2, y: geometry.size.height * 0.32)
                     .allowsHitTesting(cardVisible)
                 }
+
+                // Bottom-left menu button
+                VStack {
+                    Spacer()
+                    HStack {
+                        Button(action: { showingContactsManagement = true }) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.15))
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        }
+                        .padding(.leading, 20)
+                        .padding(.bottom, 40)
+                        Spacer()
+                    }
+                }
             }
         }
         .onAppear {
@@ -721,6 +747,9 @@ struct CircularTimelineView: View {
                 message: Text(error.message),
                 dismissButton: .default(Text("OK"))
             )
+        }
+        .fullScreenCover(isPresented: $showingContactsManagement) {
+            ContactsManagementView()
         }
     }
     
