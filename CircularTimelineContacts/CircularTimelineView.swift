@@ -503,7 +503,7 @@ struct CircularTimelineView: View {
                             )
                             .frame(width: 80, height: 80)
                             .padding(.leading, 5)
-                            .padding(.top, 80)  // Much higher
+                            .padding(.top, 50)  // Moved higher
                             .scaleEffect(navigationDirection == .next ? 1.2 : 1.0)
                             .offset(x: navigationDirection == .next ? 20 : 0)
                             
@@ -519,14 +519,14 @@ struct CircularTimelineView: View {
                             )
                             .frame(width: 80, height: 80)
                             .padding(.trailing, 5)
-                            .padding(.top, 80)  // Much higher
+                            .padding(.top, 50)  // Moved higher
                             .scaleEffect(navigationDirection == .previous ? 1.2 : 1.0)
                             .offset(x: navigationDirection == .previous ? -20 : 0)
                         }
                         
                         // Main timeline pushed down much further
                         VStack {
-                            Spacer(minLength: 350)  // Increased significantly to push wheel much lower
+                            Spacer(minLength: 280)  // Adjusted to move wheel higher
                             
                             // Main timeline container
                             ZStack {
@@ -621,6 +621,13 @@ struct CircularTimelineView: View {
                                     .allowsHitTesting(false)
                             }
                             .frame(width: containerSize, height: containerSize)
+                            .background(
+                                // Larger invisible hit area for easier grabbing
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .frame(width: containerSize * 1.5, height: containerSize * 1.5)
+                            )
+                            .contentShape(Rectangle().size(width: containerSize * 1.5, height: containerSize * 1.5))
                             .offset(x: horizontalOffset)
                             .gesture(rotationGesture)
                             
@@ -670,7 +677,7 @@ struct CircularTimelineView: View {
                         }
                     }
                 )
-                .position(x: geometry.size.width / 2, y: geometry.size.height - 250) // Move higher away from gradient
+                .position(x: geometry.size.width / 2, y: geometry.size.height * 0.52) // Centered on wheel
 
                 if let selection = selectedAvatar {
                     SelectionCardView(
@@ -681,7 +688,7 @@ struct CircularTimelineView: View {
                         contactDetail: contactDetail(for: selection.person)
                     )
                     .frame(maxWidth: 320)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.32)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.28)
                     .allowsHitTesting(cardVisible)
                 }
             }
