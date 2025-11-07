@@ -7,15 +7,15 @@ struct InteractionArcView: View {
     let timeSpan: TimeSpan
     let currentDate: Date
     let isHighlighted: Bool
-    let isHighlighted: Bool
-    
+
+    // Always visible; selected arc is subtly emphasized
     private var lineWidth: CGFloat { isHighlighted ? 10 : 7 }
-    private var arcOpacity: Double { isHighlighted ? 1.0 : 0.85 }
-    
+    private var arcOpacity: Double { 1.0 }  // Always visible at full opacity
+
     var body: some View {
         let startAngle = angleFromTime(interaction.startTime)
         let endAngle = angleFromTime(interaction.endTime)
-        
+
         Path { path in
             path.addArc(
                 center: center,
@@ -25,15 +25,15 @@ struct InteractionArcView: View {
                 clockwise: false
             )
         }
-        .stroke(interaction.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        .stroke(interaction.color.opacity(arcOpacity), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         .animation(.easeOut(duration: 0.12), value: isHighlighted)
     }
-    
+
     private func angleFromTime(_ time: Date) -> Double {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: time)
         let minute = calendar.component(.minute, from: time)
-        
+
         switch timeSpan {
         case .sixHours:
             // Get the current 6-hour window

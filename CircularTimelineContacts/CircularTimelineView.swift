@@ -383,13 +383,15 @@ struct CircularTimelineView: View {
     @State private var horizontalOffset: CGFloat = 0
     @State private var isNavigating = false
     @State private var navigationDirection: NavigationDirection = .none
-    @State private var selectedAvatar: SelectedAvatar? = nil
+
+    // Two-selection model: locked selection for highlights/arcs
+    @State private var lockedAvatar: LockedAvatar? = nil
     @State private var hapticGenerator = UIImpactFeedbackGenerator(style: .rigid)
     @State private var passbyHaptic = UIImpactFeedbackGenerator(style: .soft)
-    @State private var lastPassbyAvatar: SelectedAvatar? = nil
+    @State private var lastPassbyAvatar: LockedAvatar? = nil
     @State private var lastPassbyTime: Date = .distantPast
 
-    private struct SelectedAvatar: Equatable {
+    private struct LockedAvatar: Equatable {
         let interactionID: UUID
         let participantIndex: Int
     }
@@ -423,10 +425,10 @@ struct CircularTimelineView: View {
     @State private var previousInteractions: [TimeInteraction] = []
     @State private var nextInteractions: [TimeInteraction] = []
 
-    // Selection & feedback state
+    // Selection & feedback state - rich selection for card/actions
     @State private var pendingCandidate: AvatarCandidate?
     @State private var candidateHoldStart: Date?
-    @State private var selectedAvatar: AvatarCandidate?
+    @State private var selectedCandidate: AvatarCandidate?
     @State private var cardVisible = false
     @State private var isSnappingToSelection = false
     @State private var lastTickIndex: Int?
@@ -552,9 +554,9 @@ struct CircularTimelineView: View {
                                 
                                 // Rotating content group (only arcs)
                                 ZStack {
-                                    // Interaction arcs
+                                    // Interaction arcs - always visible
                                     ForEach(interactions) { interaction in
-                                        let isSelectedInteraction = selectedAvatar?.interactionID == interaction.id
+                                        let isSelectedInteraction = lockedAvatar?.interactionID == interaction.id
                                         InteractionArcView(
                                             interaction: interaction,
                                             radius: circleRadius,
@@ -572,8 +574,8 @@ struct CircularTimelineView: View {
                                 
                                 // Avatar components (positioned independently)
                                 ForEach(interactions) { interaction in
-                                    let isSelectedInteraction = selectedAvatar?.interactionID == interaction.id
-                                    let selectedParticipantIndex = isSelectedInteraction ? selectedAvatar?.participantIndex : nil
+                                    let isSelectedInteraction = lockedAvatar?.interactionID == interaction.id
+                                    let selectedParticipantIndex = isSelectedInteraction ? lockedAvatar?.participantIndex : nil
                                     AvatarGroupView(
                                         interaction: interaction,
                                         radius: circleRadius,
@@ -585,7 +587,6 @@ struct CircularTimelineView: View {
                                         isInteractionSelected: isSelectedInteraction,
                                         selectedParticipantIndex: selectedParticipantIndex
                                     )
-                                    .opacity(1.0)
                                 }
                                 
                                 // Hour markers (stay level) - dynamic based on time span
@@ -679,7 +680,7 @@ struct CircularTimelineView: View {
                 )
                 .position(x: geometry.size.width / 2, y: geometry.size.height * 0.52) // Centered on wheel
 
-                if let selection = selectedAvatar {
+                if let selection = selectedCandidate {
                     SelectionCardView(
                         person: selection.person,
                         interaction: selection.interaction,
@@ -724,7 +725,8 @@ struct CircularTimelineView: View {
         DragGesture()
             .onChanged { value in
                 if !isDragging {
-                    selectedAvatar = nil
+                    lockedAvatar = nil
+                    selectedCandidate = nil
                 }
                 isDragging = true
                 if cardVisible {
@@ -808,9 +810,9 @@ struct CircularTimelineView: View {
 
         guard let candidate = best else { return }
 
-        // Do not fire if we're in snap window or if this candidate is the currently selected avatar
+        // Do not fire if we're in snap window or if this candidate is the currently locked avatar
         if abs(candidate.delta) <= snapAngleThreshold { return }
-        if let sel = selectedAvatar,
+        if let sel = lockedAvatar,
            sel.interactionID == candidate.interaction.id && sel.participantIndex == candidate.participantIndex { return }
 
         // Only if within the pass-by window
@@ -824,7 +826,7 @@ struct CircularTimelineView: View {
 
         passbyHaptic.impactOccurred(intensity: 0.25)
         passbyHaptic.prepare()
-        lastPassbyAvatar = SelectedAvatar(interactionID: candidate.interaction.id, participantIndex: candidate.participantIndex)
+        lastPassbyAvatar = LockedAvatar(interactionID: candidate.interaction.id, participantIndex: candidate.participantIndex)
         lastPassbyTime = now
     }
     
@@ -867,11 +869,11 @@ struct CircularTimelineView: View {
         }
         
         guard let match = closestMatch else {
-            selectedAvatar = nil
+            lockedAvatar = nil
             return
         }
-        
-        if let currentSelection = selectedAvatar,
+
+        if let currentSelection = lockedAvatar,
            currentSelection.interactionID == match.interaction.id,
            currentSelection.participantIndex == match.participantIndex,
            abs(match.delta) < 0.001 {
@@ -883,7 +885,7 @@ struct CircularTimelineView: View {
             let snapAnimation = Animation.timingCurve(0.33, 0.0, 0.18, 1.0, duration: 0.11)
             applyRotationDelta(deltaToApply, animation: snapAnimation)
         }
-        selectedAvatar = SelectedAvatar(
+        lockedAvatar = LockedAvatar(
             interactionID: match.interaction.id,
             participantIndex: match.participantIndex
         )
@@ -973,7 +975,8 @@ struct CircularTimelineView: View {
 
     private func clearSelection() {
         ensureSelectionCardVisible(false)
-        selectedAvatar = nil
+        lockedAvatar = nil
+        selectedCandidate = nil
         pendingCandidate = nil
         candidateHoldStart = nil
         detailInteraction = nil
@@ -983,7 +986,7 @@ struct CircularTimelineView: View {
         guard !isSnappingToSelection else { return }
         guard !interactions.isEmpty else { return }
 
-        if let selection = selectedAvatar {
+        if let selection = selectedCandidate {
             let currentAngle = normalizedAngle(selection.baseAngle + rotationAngle.radians)
             let delta = normalizedAngle(currentAngle - northAngle)
             if abs(delta) > selectionReleaseThreshold {
@@ -1000,7 +1003,7 @@ struct CircularTimelineView: View {
             if let pending = pendingCandidate, pending == candidate {
                 if let start = candidateHoldStart {
                     if Date().timeIntervalSince(start) >= selectionHoldDuration {
-                        if selectedAvatar != candidate {
+                        if selectedCandidate != candidate {
                             lockSelection(for: candidate, deltaToNorth: deltaToNorth)
                         } else {
                             ensureSelectionCardVisible(true)
@@ -1023,7 +1026,9 @@ struct CircularTimelineView: View {
         isSnappingToSelection = true
         pendingCandidate = nil
         candidateHoldStart = nil
-        selectedAvatar = candidate
+        // Set both selections: locked for visuals, candidate for card
+        lockedAvatar = LockedAvatar(interactionID: candidate.interaction.id, participantIndex: candidate.participantIndex)
+        selectedCandidate = candidate
         selectionFeedback.prepare()
 
         let adjustment = -deltaToNorth
@@ -1068,7 +1073,7 @@ struct CircularTimelineView: View {
     }
 
     private func handleSelectionAction(_ action: SelectionCardAction) {
-        guard let selection = selectedAvatar else { return }
+        guard let selection = selectedCandidate else { return }
         actionFeedback.prepare()
         actionFeedback.impactOccurred(intensity: 0.8)
         switch action {
@@ -1337,8 +1342,7 @@ struct CircularTimelineView: View {
         // This would typically fetch new data for the current date
         // For now, we'll just update the sample data
         setupSampleData()
-        selectedAvatar = nil
-        
+
         // Also update adjacent intervals
         updateAdjacentIntervals()
         evaluateSelectionCandidate()
