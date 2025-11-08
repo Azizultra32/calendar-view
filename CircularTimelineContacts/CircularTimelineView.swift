@@ -516,6 +516,8 @@ struct CircularTimelineView: View {
     @State private var interactionToEdit: Interaction?
     @State private var showingDeleteConfirmation = false
     @State private var interactionToDelete: Interaction?
+    @State private var showingProximity = false
+    @State private var bluetoothManager: BluetoothManager?
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -776,10 +778,11 @@ struct CircularTimelineView: View {
                     .allowsHitTesting(cardVisible)
                 }
 
-                // Bottom-left menu button
+                // Bottom-left menu buttons
                 VStack {
                     Spacer()
-                    HStack {
+                    HStack(spacing: 12) {
+                        // Contacts button
                         Button(action: { showingContactsManagement = true }) {
                             Image(systemName: "person.2.fill")
                                 .font(.system(size: 20))
@@ -795,10 +798,40 @@ struct CircularTimelineView: View {
                                 )
                                 .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
                         }
-                        .padding(.leading, 20)
-                        .padding(.bottom, 40)
+
+                        // Proximity button
+                        Button(action: { showingProximity = true }) {
+                            ZStack {
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+
+                                // Badge for nearby users
+                                if let manager = bluetoothManager, !manager.nearbyUsers.isEmpty {
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 18, height: 18)
+                                        .overlay(
+                                            Text("\(manager.nearbyUsers.count)")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
+                                        .offset(x: 15, y: -15)
+                                }
+                            }
+                            .frame(width: 50, height: 50)
+                            .background(
+                                Circle()
+                                    .fill(bluetoothManager?.isEnabled == true ? Color.blue.opacity(0.3) : Color.white.opacity(0.15))
+                                    .overlay(Circle().stroke(bluetoothManager?.isEnabled == true ? Color.blue.opacity(0.5) : Color.white.opacity(0.3), lineWidth: 1))
+                            )
+                            .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        }
+
                         Spacer()
                     }
+                    .padding(.leading, 20)
+                    .padding(.bottom, 40)
                 }
             }
         }
@@ -808,6 +841,13 @@ struct CircularTimelineView: View {
             setupSampleData()
             updateTickIndex()
             evaluateSelectionCandidate()
+
+            // Initialize Bluetooth manager
+            if bluetoothManager == nil {
+                let userID = UUID()
+                let userName = "You" // TODO: Get from user settings
+                bluetoothManager = BluetoothManager(userID: userID, userName: userName)
+            }
         }
         .onReceive(Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()) { _ in
             if !isDragging && !isZooming && !isNavigating && abs(velocity) > 0.01 {
@@ -837,6 +877,11 @@ struct CircularTimelineView: View {
         }
         .fullScreenCover(isPresented: $showingContactsManagement) {
             ContactsManagementView()
+        }
+        .fullScreenCover(isPresented: $showingProximity) {
+            if let manager = bluetoothManager {
+                ProximityView(bluetoothManager: manager)
+            }
         }
         .sheet(item: $interactionToEdit) { interaction in
             InteractionEditorView(interaction: interaction)
