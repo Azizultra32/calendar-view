@@ -1,15 +1,6 @@
 import SwiftUI
+import SwiftData
 import UIKit
-
-// MARK: - Data Models
-struct TimeInteraction: Identifiable {
-    let id = UUID()
-    let startTime: Date
-    let endTime: Date
-    let participants: [Person]
-    let color: Color
-    let location: String
-}
 
 // MARK: - Selection Overlay Views
 
@@ -57,11 +48,12 @@ private struct ActionError: Identifiable {
 }
 
 private struct SelectionCardView: View {
-    let person: Person
-    let interaction: TimeInteraction
+    let contact: Contact
+    let interaction: Interaction
     let isVisible: Bool
     let onAction: (SelectionCardAction) -> Void
     let contactDetail: String
+    var socialProfiles: [SocialProfile] = []  // Optional social media
 
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -76,56 +68,99 @@ private struct SelectionCardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 10) {
-                SelectionCardHalf(
-                    title: person.name,
-                    subtitle: "Contact",
-                    detail: contactDetail,
-                    alignment: .leading,
-                    isVisible: isVisible,
-                    direction: .leading
-                )
+        VStack(spacing: 0) {
+            // Main card content
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 10) {
+                    SelectionCardHalf(
+                        title: contact.name,
+                        subtitle: "Contact",
+                        detail: contactDetail,
+                        alignment: .leading,
+                        isVisible: isVisible,
+                        direction: .leading
+                    )
 
-                HStack(spacing: 12) {
-                    ActionPill(
-                        systemName: "phone.fill",
-                        title: "Call",
-                        isVisible: isVisible,
-                        action: { onAction(.call) }
-                    )
-                    ActionPill(
-                        systemName: "message.fill",
-                        title: "Message",
-                        isVisible: isVisible,
-                        action: { onAction(.message) }
-                    )
+                    HStack(spacing: 12) {
+                        ActionPill(
+                            systemName: "phone.fill",
+                            title: "Call",
+                            isVisible: isVisible,
+                            action: { onAction(.call) }
+                        )
+                        ActionPill(
+                            systemName: "message.fill",
+                            title: "Message",
+                            isVisible: isVisible,
+                            action: { onAction(.message) }
+                        )
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            VStack(alignment: .trailing, spacing: 10) {
-                SelectionCardHalf(
-                    title: timeRangeText,
-                    subtitle: interaction.location,
-                    detail: dayFormatter.string(from: interaction.startTime),
-                    alignment: .trailing,
-                    isVisible: isVisible,
-                    direction: .trailing
-                )
+                VStack(alignment: .trailing, spacing: 10) {
+                    SelectionCardHalf(
+                        title: timeRangeText,
+                        subtitle: interaction.location,
+                        detail: dayFormatter.string(from: interaction.startTime),
+                        alignment: .trailing,
+                        isVisible: isVisible,
+                        direction: .trailing
+                    )
 
-                ActionPill(
-                    systemName: "calendar.badge.plus",
-                    title: "Open Day",
-                    isVisible: isVisible,
-                    action: { onAction(.openDetails) }
-                )
+                    ActionPill(
+                        systemName: "calendar.badge.plus",
+                        title: "Open Day",
+                        isVisible: isVisible,
+                        action: { onAction(.openDetails) }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.vertical, 18)
+            .padding(.horizontal, 24)
+
+            // Social media row (bottom)
+            if !socialProfiles.isEmpty {
+                Divider()
+                    .background(Color.white.opacity(0.2))
+                    .padding(.horizontal, 24)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(socialProfiles.prefix(6)) { profile in
+                            Button(action: {
+                                SocialMediaHandler.openProfile(profile)
+                            }) {
+                                HStack(spacing: 6) {
+                                    Text(profile.platform.emoji)
+                                        .font(.system(size: 16))
+                                    Text(profile.displayHandle)
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.1))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                }
+                .opacity(isVisible ? 1 : 0)
+                .scaleEffect(isVisible ? 1 : 0.95)
+                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: isVisible)
+            }
         }
-        .padding(.vertical, 18)
-        .padding(.horizontal, 24)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.white.opacity(0.1))
@@ -227,7 +262,7 @@ private struct ActionPill: View {
 }
 
 private struct InteractionDetailSheet: View {
-    let interaction: TimeInteraction
+    let interaction: Interaction
 
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -245,7 +280,7 @@ private struct InteractionDetailSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(interaction.location)
+                Text(interaction.locationName ?? interaction.title)
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.white)
 
@@ -264,27 +299,27 @@ private struct InteractionDetailSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
 
-                    ForEach(interaction.participants) { person in
+                    ForEach(interaction.participants) { contact in
                         HStack(spacing: 12) {
                             Circle()
                                 .fill(interaction.color.opacity(0.8))
                                 .frame(width: 32, height: 32)
                                 .overlay(
-                                    Text(person.initial)
+                                    Text(contact.initial)
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.white)
                                 )
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(person.name)
+                                Text(contact.name)
                                     .font(.system(size: 15, weight: .medium))
                                     .foregroundColor(.white)
-                                if let phone = person.phoneNumber {
+                                if let phone = contact.primaryPhoneNumber {
                                     Text(formattedPhone(phone))
                                         .font(.system(size: 12))
                                         .foregroundColor(Color.white.opacity(0.6))
                                 }
-                                if let handle = person.messageHandle, person.phoneNumber == nil {
-                                    Text(handle)
+                                if let email = contact.primaryEmail, contact.primaryPhoneNumber == nil {
+                                    Text(email)
                                         .font(.system(size: 12))
                                         .foregroundColor(Color.white.opacity(0.6))
                                 }
@@ -309,20 +344,6 @@ private struct InteractionDetailSheet: View {
     }
 }
 
-struct Person: Identifiable {
-    let id = UUID()
-    let name: String
-    let initial: String
-    let phoneNumber: String?
-    let messageHandle: String?
-
-    init(name: String, initial: String, phoneNumber: String? = nil, messageHandle: String? = nil) {
-        self.name = name
-        self.initial = initial
-        self.phoneNumber = phoneNumber
-        self.messageHandle = messageHandle
-    }
-}
 
 // MARK: - Time Span Options
 enum TimeSpan: CaseIterable {
@@ -365,6 +386,9 @@ enum TimeSpan: CaseIterable {
 
 // MARK: - Main Circular Timeline View
 struct CircularTimelineView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allInteractions: [Interaction]
+
     @State private var rotationAngle: Angle = .zero
     @State private var lastAngle: Angle = .zero
     @State private var isDragging = false
@@ -424,10 +448,10 @@ struct CircularTimelineView: View {
         touchAngleDegrees * 0.9 // 12.06° for 10% overlap
     }
     
-    // Sample data
-    @State private var interactions: [TimeInteraction] = []
-    @State private var previousInteractions: [TimeInteraction] = []
-    @State private var nextInteractions: [TimeInteraction] = []
+    // Current view data
+    @State private var interactions: [Interaction] = []
+    @State private var previousInteractions: [Interaction] = []
+    @State private var nextInteractions: [Interaction] = []
 
     // Selection & feedback state
     @State private var selectedAvatar: AvatarCandidate?
@@ -437,20 +461,20 @@ struct CircularTimelineView: View {
     @State private var isSnappingToSelection = false
     @State private var lastTickIndex: Int?
     @State private var actionError: ActionError?
-    @State private var detailInteraction: TimeInteraction?
+    @State private var detailInteraction: Interaction?
     @State private var showingContactsManagement = false
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
 
     private struct AvatarCandidate: Equatable {
-        let interaction: TimeInteraction
-        let person: Person
+        let interaction: Interaction
+        let contact: Contact
         let participantIndex: Int
         let baseAngle: Double
 
         static func == (lhs: AvatarCandidate, rhs: AvatarCandidate) -> Bool {
-            lhs.interaction.id == rhs.interaction.id && lhs.person.id == rhs.person.id && lhs.participantIndex == rhs.participantIndex
+            lhs.interaction.id == rhs.interaction.id && lhs.contact.id == rhs.contact.id && lhs.participantIndex == rhs.participantIndex
         }
     }
     
@@ -687,11 +711,12 @@ struct CircularTimelineView: View {
 
                 if let selection = selectedAvatar {
                     SelectionCardView(
-                        person: selection.person,
+                        contact: selection.contact,
                         interaction: selection.interaction,
                         isVisible: cardVisible,
                         onAction: handleSelectionAction,
-                        contactDetail: contactDetail(for: selection.person)
+                        contactDetail: contactDetail(for: selection.contact),
+                        socialProfiles: selection.contact.socialProfiles
                     )
                     .frame(maxWidth: 320)
                     .position(x: geometry.size.width / 2, y: geometry.size.height * 0.32)
@@ -1078,7 +1103,7 @@ struct CircularTimelineView: View {
         var smallestDelta = Double.greatestFiniteMagnitude
 
         for interaction in interactions {
-            for (index, person) in interaction.participants.enumerated() {
+            for (index, contact) in interaction.participants.enumerated() {
                 let angle = baseAngle(for: interaction, participantIndex: index)
                 let adjusted = normalizedAngle(angle + rotationAngle.radians)
                 let delta = abs(normalizedAngle(adjusted - northAngle))
@@ -1086,7 +1111,7 @@ struct CircularTimelineView: View {
                     smallestDelta = delta
                     closest = AvatarCandidate(
                         interaction: interaction,
-                        person: person,
+                        contact: contact,
                         participantIndex: index,
                         baseAngle: angle
                     )
@@ -1103,17 +1128,17 @@ struct CircularTimelineView: View {
         actionFeedback.impactOccurred(intensity: 0.8)
         switch action {
         case .call:
-            attemptCall(to: selection.person)
+            attemptCall(to: selection.contact)
         case .message:
-            attemptMessage(to: selection.person)
+            attemptMessage(to: selection.contact)
         case .openDetails:
             detailInteraction = selection.interaction
         }
     }
 
-    private func attemptCall(to person: Person) {
-        guard let phone = person.phoneNumber else {
-            actionError = ActionError(message: "No phone number on file for \(person.name).")
+    private func attemptCall(to contact: Contact) {
+        guard let phone = contact.primaryPhoneNumber else {
+            actionError = ActionError(message: "No phone number on file for \(contact.name).")
             return
         }
         let digits = sanitizedDigits(from: phone)
@@ -1128,8 +1153,8 @@ struct CircularTimelineView: View {
         }
     }
 
-    private func attemptMessage(to person: Person) {
-        if let phone = person.phoneNumber {
+    private func attemptMessage(to contact: Contact) {
+        if let phone = contact.primaryPhoneNumber {
             let digits = sanitizedDigits(from: phone)
             if let smsURL = URL(string: "sms:\(digits)"), !digits.isEmpty {
                 UIApplication.shared.open(smsURL, options: [:]) { success in
@@ -1141,25 +1166,25 @@ struct CircularTimelineView: View {
             }
         }
 
-        if let handle = person.messageHandle, let mailURL = URL(string: "mailto:\(handle)") {
+        if let email = contact.primaryEmail, let mailURL = URL(string: "mailto:\(email)") {
             UIApplication.shared.open(mailURL, options: [:]) { success in
                 if !success {
-                    actionError = ActionError(message: "Unable to compose message for \(person.name).")
+                    actionError = ActionError(message: "Unable to compose message for \(contact.name).")
                 }
             }
         } else {
-            actionError = ActionError(message: "No messaging info available for \(person.name).")
+            actionError = ActionError(message: "No messaging info available for \(contact.name).")
         }
     }
 
-    private func contactDetail(for person: Person) -> String {
-        if let phone = person.phoneNumber {
+    private func contactDetail(for contact: Contact) -> String {
+        if let phone = contact.primaryPhoneNumber {
             return formattedPhoneDisplay(from: phone)
         }
-        if let handle = person.messageHandle {
-            return handle
+        if let email = contact.primaryEmail {
+            return email
         }
-        return person.initial
+        return contact.initial
     }
 
     private func formattedPhoneDisplay(from phone: String) -> String {
@@ -1418,204 +1443,22 @@ struct CircularTimelineView: View {
         }
     }
     
-    // MARK: - Sample Data
+    // MARK: - Data Loading
     private func setupSampleData() {
-        interactions = getSampleDataForDate(currentDate)
+        interactions = getInteractionsForDate(currentDate)
     }
-    
-    private func getSampleDataForDate(_ date: Date) -> [TimeInteraction] {
+
+    private func getInteractionsForDate(_ date: Date) -> [Interaction] {
         let calendar = Calendar.current
-        let dayOfWeek = calendar.component(.weekday, from: date)
-        let dayOfMonth = calendar.component(.day, from: date)
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
-        func samplePerson(_ name: String, initial: String, index: Int) -> Person {
-            let digits = String(format: "55501%05d", index)
-            let handleBase = name.lowercased().replacingOccurrences(of: " ", with: "")
-            return Person(
-                name: name,
-                initial: initial,
-                phoneNumber: digits,
-                messageHandle: "\(handleBase)@timeline.app"
-            )
+        // Filter interactions for the specific date
+        let dayInteractions = allInteractions.filter { interaction in
+            // Check if interaction overlaps with the day
+            interaction.startTime < endOfDay && interaction.endTime > startOfDay
         }
 
-        // Create people
-        let sarah = samplePerson("Sarah", initial: "S", index: 1)
-        let mike = samplePerson("Mike", initial: "M", index: 2)
-        let alex = samplePerson("Alex", initial: "A", index: 3)
-        let emma = samplePerson("Emma", initial: "E", index: 4)
-        let jake = samplePerson("Jake", initial: "J", index: 5)
-        let lisa = samplePerson("Lisa", initial: "L", index: 6)
-        let david = samplePerson("David", initial: "D", index: 7)
-        let chris = samplePerson("Chris", initial: "C", index: 8)
-        let maya = samplePerson("Maya", initial: "Y", index: 9)
-        let tom = samplePerson("Tom", initial: "T", index: 10)
-        let nina = samplePerson("Nina", initial: "N", index: 11)
-        let sam = samplePerson("Sam", initial: "R", index: 12)
-        let kate = samplePerson("Kate", initial: "K", index: 13)
-        let ben = samplePerson("Ben", initial: "B", index: 14)
-        let olivia = samplePerson("Olivia", initial: "O", index: 15)
-        
-        var interactions: [TimeInteraction] = []
-        
-        // Different events based on day of week
-        switch dayOfWeek {
-        case 1: // Sunday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date)!,
-                participants: [sarah, mike, emma],
-                color: Color.blue,
-                location: "Brunch at Marina"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 17, minute: 0, second: 0, of: date)!,
-                participants: [alex, jake],
-                color: Color.purple,
-                location: "Basketball Game"
-            ))
-            
-        case 2: // Monday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: date)!,
-                participants: [david, lisa],
-                color: Color.green,
-                location: "Team Standup"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 11, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 12, minute: 30, second: 0, of: date)!,
-                participants: [chris],
-                color: Color.orange,
-                location: "Client Call"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 15, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 16, minute: 30, second: 0, of: date)!,
-                participants: [maya, tom, nina],
-                color: Color.red,
-                location: "Project Review"
-            ))
-            
-        case 3: // Tuesday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 8, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 9, minute: 30, second: 0, of: date)!,
-                participants: [ben],
-                color: Color.cyan,
-                location: "Morning Run"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: date)!,
-                participants: [kate, olivia],
-                color: Color.pink,
-                location: "Design Review"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 18, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 20, minute: 0, second: 0, of: date)!,
-                participants: [sarah, alex, emma, jake],
-                color: Color.green.opacity(0.7),
-                location: "Team Dinner"
-            ))
-            
-        case 4: // Wednesday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 11, minute: 30, second: 0, of: date)!,
-                participants: [mike, david, chris],
-                color: Color.indigo,
-                location: "Strategy Meeting"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 14, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 15, minute: 30, second: 0, of: date)!,
-                participants: [lisa],
-                color: Color.yellow,
-                location: "Doctor Appointment"
-            ))
-            
-        case 5: // Thursday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 9, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 10, minute: 30, second: 0, of: date)!,
-                participants: [sarah, mike],
-                color: Color.green,
-                location: "Coffee Chat"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: date)!,
-                participants: [alex, emma, jake, lisa],
-                color: Color.green.opacity(0.8),
-                location: "Team Lunch"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 16, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 17, minute: 0, second: 0, of: date)!,
-                participants: [tom, nina, sam],
-                color: Color.purple.opacity(0.8),
-                location: "Code Review"
-            ))
-            
-        case 6: // Friday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: date)!,
-                participants: [david],
-                color: Color.blue,
-                location: "1:1 with Manager"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 15, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 16, minute: 0, second: 0, of: date)!,
-                participants: [chris, maya],
-                color: Color.orange.opacity(0.7),
-                location: "Sprint Planning"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 17, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 19, minute: 0, second: 0, of: date)!,
-                participants: [sarah, mike, alex, emma, jake],
-                color: Color.green.opacity(0.6),
-                location: "Happy Hour"
-            ))
-            
-        case 7: // Saturday
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: date)!,
-                participants: [kate, ben, olivia],
-                color: Color.mint,
-                location: "Farmers Market"
-            ))
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 19, minute: 0, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 22, minute: 0, second: 0, of: date)!,
-                participants: [chris, maya, tom, nina, sam],
-                color: Color.red.opacity(0.8),
-                location: "Birthday Party"
-            ))
-            
-        default:
-            break
-        }
-        
-        // Add some variation based on day of month
-        if dayOfMonth % 5 == 0 {
-            // Every 5th day, add a morning workout
-            interactions.append(TimeInteraction(
-                startTime: calendar.date(bySettingHour: 6, minute: 30, second: 0, of: date)!,
-                endTime: calendar.date(bySettingHour: 7, minute: 30, second: 0, of: date)!,
-                participants: [ben, jake],
-                color: Color.teal,
-                location: "Gym"
-            ))
-        }
-        
-        return interactions
+        return dayInteractions.sorted { $0.startTime < $1.startTime }
     }
 }
