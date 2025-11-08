@@ -57,6 +57,8 @@ private struct SelectionCardView: View {
     let contactDetail: String
     var socialProfiles: [SocialProfile] = []  // Optional social media
 
+    @State private var socialButtonsVisible = false
+
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
@@ -103,7 +105,7 @@ private struct SelectionCardView: View {
                 VStack(alignment: .trailing, spacing: 10) {
                     SelectionCardHalf(
                         title: timeRangeText,
-                        subtitle: interaction.location,
+                        subtitle: interaction.locationName ?? interaction.title,
                         detail: dayFormatter.string(from: interaction.startTime),
                         alignment: .trailing,
                         isVisible: isVisible,
@@ -123,16 +125,20 @@ private struct SelectionCardView: View {
             .padding(.vertical, 18)
             .padding(.horizontal, 24)
 
-            // Social media row (bottom)
+            // Social media row (bottom) - with stagger animation
             if !socialProfiles.isEmpty {
                 Divider()
                     .background(Color.white.opacity(0.2))
                     .padding(.horizontal, 24)
+                    .opacity(socialButtonsVisible ? 1 : 0)
+                    .animation(.easeOut(duration: 0.2).delay(0.1), value: socialButtonsVisible)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
-                        ForEach(socialProfiles.prefix(6)) { profile in
+                        ForEach(Array(socialProfiles.prefix(6).enumerated()), id: \.element.id) { index, profile in
                             Button(action: {
+                                let impactMed = UIImpactFeedbackGenerator(style: .light)
+                                impactMed.impactOccurred()
                                 SocialMediaHandler.openProfile(profile)
                             }) {
                                 HStack(spacing: 6) {
@@ -147,38 +153,40 @@ private struct SelectionCardView: View {
                                 .background(
                                     Capsule()
                                         .fill(Color.white.opacity(0.1))
-                                        .overlay(
-                                            Capsule()
-                                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                        )
+                                        .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
                                 )
                             }
+                            .opacity(socialButtonsVisible ? 1 : 0)
+                            .offset(y: socialButtonsVisible ? 0 : 10)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.7).delay(Double(index) * 0.05), value: socialButtonsVisible)
                         }
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                 }
-                .opacity(isVisible ? 1 : 0)
-                .scaleEffect(isVisible ? 1 : 0.95)
-                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: isVisible)
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.1))
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: 20)
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
-                .background(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.black.opacity(0.45))
-                        .blur(radius: 30)
-                )
         )
-        .shadow(color: Color.black.opacity(0.4), radius: 20, y: 12)
-        .padding(.horizontal, 24)
-        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isVisible)
+        .shadow(color: Color.black.opacity(0.3), radius: 20, y: 10)
+        .scaleEffect(isVisible ? 1 : 0.85)
+        .opacity(isVisible ? 1 : 0)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isVisible)
+        .onChange(of: isVisible) { _, newValue in
+            if newValue {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    socialButtonsVisible = true
+                }
+            } else {
+                socialButtonsVisible = false
+            }
+        }
     }
 
     private var timeRangeText: String {
@@ -785,63 +793,36 @@ struct CircularTimelineView: View {
                     Spacer()
                     HStack(spacing: 12) {
                         // Contacts button
-                        Button(action: { showingContactsManagement = true }) {
-                            Image(systemName: "person.2.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(
-                                    Circle()
-                                        .fill(Color.white.opacity(0.15))
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                        )
-                                )
-                                .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        MenuButton(
+                            icon: "person.2.fill",
+                            isActive: false,
+                            badge: nil
+                        ) {
+                            let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                            impactMed.impactOccurred()
+                            showingContactsManagement = true
                         }
 
                         // Proximity button
-                        Button(action: { showingProximity = true }) {
-                            ZStack {
-                                Image(systemName: "antenna.radiowaves.left.and.right")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-
-                                // Badge for nearby users
-                                if let manager = bluetoothManager, !manager.nearbyUsers.isEmpty {
-                                    Circle()
-                                        .fill(Color.blue)
-                                        .frame(width: 18, height: 18)
-                                        .overlay(
-                                            Text("\(manager.nearbyUsers.count)")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.white)
-                                        )
-                                        .offset(x: 15, y: -15)
-                                }
-                            }
-                            .frame(width: 50, height: 50)
-                            .background(
-                                Circle()
-                                    .fill(bluetoothManager?.isEnabled == true ? Color.blue.opacity(0.3) : Color.white.opacity(0.15))
-                                    .overlay(Circle().stroke(bluetoothManager?.isEnabled == true ? Color.blue.opacity(0.5) : Color.white.opacity(0.3), lineWidth: 1))
-                            )
-                            .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        MenuButton(
+                            icon: "antenna.radiowaves.left.and.right",
+                            isActive: bluetoothManager?.isEnabled == true,
+                            badge: bluetoothManager?.nearbyUsers.isEmpty == false ? bluetoothManager?.nearbyUsers.count : nil
+                        ) {
+                            let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                            impactMed.impactOccurred()
+                            showingProximity = true
                         }
 
                         // Calendar sync button
-                        Button(action: { showingCalendarSync = true }) {
-                            Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(
-                                    Circle()
-                                        .fill(Color.white.opacity(0.15))
-                                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                                )
-                                .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        MenuButton(
+                            icon: "calendar.badge.clock",
+                            isActive: false,
+                            badge: nil
+                        ) {
+                            let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                            impactMed.impactOccurred()
+                            showingCalendarSync = true
                         }
 
                         Spacer()
@@ -1624,5 +1605,70 @@ struct CircularTimelineView: View {
         }
 
         return dayInteractions.sorted { $0.startTime < $1.startTime }
+    }
+}
+
+// MARK: - Menu Button Component
+
+private struct MenuButton: View {
+    let icon: String
+    let isActive: Bool
+    let badge: Int?
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white)
+
+                // Badge for notifications
+                if let count = badge {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Text("\(count)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                        )
+                        .offset(x: 16, y: -16)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(width: 50, height: 50)
+            .background(
+                Circle()
+                    .fill(isActive ? Color.blue.opacity(0.3) : Color.white.opacity(0.15))
+                    .overlay(
+                        Circle()
+                            .stroke(isActive ? Color.blue.opacity(0.5) : Color.white.opacity(0.3), lineWidth: 1)
+                    )
+            )
+            .shadow(
+                color: Color.black.opacity(isPressed ? 0.5 : 0.3),
+                radius: isPressed ? 15 : 10,
+                y: isPressed ? 3 : 5
+            )
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+        }
+        .buttonStyle(PressButtonStyle(isPressed: $isPressed))
+    }
+}
+
+// MARK: - Press Button Style
+
+private struct PressButtonStyle: ButtonStyle {
+    @Binding var isPressed: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, newValue in
+                isPressed = newValue
+            }
     }
 }
