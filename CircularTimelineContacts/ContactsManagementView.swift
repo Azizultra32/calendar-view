@@ -310,6 +310,253 @@ struct ContactPickerView: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Interaction Editor
+struct InteractionEditorView: View {
+    let interaction: Interaction
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Contact.name) private var allContacts: [Contact]
+
+    @State private var selectedContacts: Set<Contact> = []
+    @State private var location: String = ""
+    @State private var startDate: Date = Date()
+    @State private var endDate: Date = Date()
+    @State private var category: InteractionCategory = .meeting
+    @State private var notes: String = ""
+    @State private var selectedColor: Color = .blue
+
+    private let colorOptions: [Color] = [
+        .blue, .green, .red, .orange, .purple, .pink, .yellow, .cyan, .mint, .indigo
+    ]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Participants Section
+                Section {
+                    NavigationLink {
+                        ParticipantEditorView(
+                            allContacts: allContacts,
+                            selectedContacts: $selectedContacts
+                        )
+                    } label: {
+                        HStack {
+                            Text("Participants")
+                            Spacer()
+                            Text("\(selectedContacts.count)")
+                                .foregroundColor(.gray)
+                        }
+                    }
+
+                    // Show selected participants
+                    ForEach(Array(selectedContacts), id: \.id) { participant in
+                        HStack(spacing: 12) {
+                            if let imageData = participant.avatarImageData,
+                               let uiImage = UIImage(data: imageData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                            } else {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.3))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(participant.initial)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+                            Text(participant.name)
+                            Spacer()
+                            Button(action: { selectedContacts.remove(participant) }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("WHO")
+                }
+
+                // Time Section
+                Section {
+                    DatePicker("Start", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("End", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
+                } header: {
+                    Text("WHEN")
+                }
+
+                // Location Section
+                Section {
+                    TextField("Coffee Shop, Park, etc.", text: $location)
+                } header: {
+                    Text("WHERE")
+                }
+
+                // Category Section
+                Section {
+                    Picker("Category", selection: $category) {
+                        ForEach(InteractionCategory.allCases, id: \.self) { cat in
+                            HStack {
+                                Text(cat.icon)
+                                Text(cat.displayName)
+                            }
+                            .tag(cat)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("CATEGORY")
+                }
+
+                // Color Section
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(colorOptions, id: \.self) { color in
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 44, height: 44)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                                    )
+                                    .onTapGesture {
+                                        selectedColor = color
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                } header: {
+                    Text("COLOR")
+                }
+
+                // Notes Section
+                Section {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 100)
+                } header: {
+                    Text("NOTES")
+                }
+            }
+            .navigationTitle("Edit Interaction")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { updateInteraction() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            // Pre-populate with existing data
+            selectedContacts = Set(interaction.participants)
+            location = interaction.locationName ?? ""
+            startDate = interaction.startTime
+            endDate = interaction.endTime
+            category = interaction.category
+            notes = interaction.notes ?? ""
+            selectedColor = interaction.color
+        }
+    }
+
+    private func updateInteraction() {
+        // Update existing interaction
+        interaction.startTime = startDate
+        interaction.endTime = endDate
+        interaction.locationName = location.isEmpty ? nil : location
+        interaction.category = category
+        interaction.notes = notes.isEmpty ? nil : notes
+        interaction.colorHex = selectedColor.toHex()
+
+        // Update participants
+        interaction.participants = Array(selectedContacts)
+
+        // Save changes
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
+// MARK: - Participant Editor (for editing mode)
+struct ParticipantEditorView: View {
+    let allContacts: [Contact]
+    @Binding var selectedContacts: Set<Contact>
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(allContacts) { contact in
+                Button(action: { toggleContact(contact) }) {
+                    HStack(spacing: 12) {
+                        if let imageData = contact.avatarImageData,
+                           let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        } else {
+                            Circle()
+                                .fill(Color.blue.opacity(0.3))
+                                .frame(width: 40, height: 40)
+                                .overlay(
+                                    Text(contact.initial)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(contact.name)
+                                .foregroundColor(.white)
+                            if let phone = contact.phoneNumbers.first {
+                                Text(phone.number)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+
+                        Spacer()
+
+                        if selectedContacts.contains(contact) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                        } else {
+                            Image(systemName: "circle")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .navigationTitle("Edit Participants")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") { dismiss() }
+            }
+        }
+    }
+
+    private func toggleContact(_ contact: Contact) {
+        if selectedContacts.contains(contact) {
+            selectedContacts.remove(contact)
+        } else {
+            selectedContacts.insert(contact)
+        }
+    }
+}
+
 // MARK: - Interaction Builder
 struct InteractionBuilderView: View {
     let contact: Contact

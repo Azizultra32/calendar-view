@@ -40,6 +40,8 @@ private enum SelectionCardAction {
     case call
     case message
     case openDetails
+    case editInteraction
+    case deleteInteraction
 }
 
 private struct ActionError: Identifiable {
@@ -263,6 +265,9 @@ private struct ActionPill: View {
 
 private struct InteractionDetailSheet: View {
     let interaction: Interaction
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -278,60 +283,105 @@ private struct InteractionDetailSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(interaction.locationName ?? interaction.title)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Text(rangeFormatter.string(from: interaction.startTime, to: interaction.endTime))
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.7))
-
-                Text(timeFormatter.string(from: interaction.startTime))
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(Color.white.opacity(0.5))
-
-                Divider().background(Color.white.opacity(0.2))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Participants")
-                        .font(.system(size: 14, weight: .semibold))
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(interaction.locationName ?? interaction.title)
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundColor(.white)
 
-                    ForEach(interaction.participants) { contact in
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(interaction.color.opacity(0.8))
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Text(contact.initial)
-                                        .font(.system(size: 14, weight: .bold))
+                    Text(rangeFormatter.string(from: interaction.startTime, to: interaction.endTime))
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.white.opacity(0.7))
+
+                    Text(timeFormatter.string(from: interaction.startTime))
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(Color.white.opacity(0.5))
+
+                    Divider().background(Color.white.opacity(0.2))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Participants")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        ForEach(interaction.participants) { contact in
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(interaction.color.opacity(0.8))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(contact.initial)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(contact.name)
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(.white)
-                                )
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(contact.name)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(.white)
-                                if let phone = contact.primaryPhoneNumber {
-                                    Text(formattedPhone(phone))
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Color.white.opacity(0.6))
-                                }
-                                if let email = contact.primaryEmail, contact.primaryPhoneNumber == nil {
-                                    Text(email)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Color.white.opacity(0.6))
+                                    if let phone = contact.primaryPhoneNumber {
+                                        Text(formattedPhone(phone))
+                                            .font(.system(size: 12))
+                                            .foregroundColor(Color.white.opacity(0.6))
+                                    }
+                                    if let email = contact.primaryEmail, contact.primaryPhoneNumber == nil {
+                                        Text(email)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(Color.white.opacity(0.6))
+                                    }
                                 }
                             }
                         }
                     }
+
+                    Divider().background(Color.white.opacity(0.2))
+
+                    // Action buttons
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            dismiss()
+                            onEdit()
+                        }) {
+                            HStack {
+                                Image(systemName: "pencil")
+                                Text("Edit")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+
+                        Button(action: {
+                            dismiss()
+                            onDelete()
+                        }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("Delete")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.white)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 32)
         }
-        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
 
     private func formattedPhone(_ phone: String) -> String {
@@ -463,6 +513,9 @@ struct CircularTimelineView: View {
     @State private var actionError: ActionError?
     @State private var detailInteraction: Interaction?
     @State private var showingContactsManagement = false
+    @State private var interactionToEdit: Interaction?
+    @State private var showingDeleteConfirmation = false
+    @State private var interactionToDelete: Interaction?
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -762,9 +815,18 @@ struct CircularTimelineView: View {
             }
         }
         .sheet(item: $detailInteraction) { interaction in
-            InteractionDetailSheet(interaction: interaction)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            InteractionDetailSheet(
+                interaction: interaction,
+                onEdit: {
+                    interactionToEdit = interaction
+                },
+                onDelete: {
+                    interactionToDelete = interaction
+                    showingDeleteConfirmation = true
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .alert(item: $actionError) { error in
             Alert(
@@ -775,6 +837,37 @@ struct CircularTimelineView: View {
         }
         .fullScreenCover(isPresented: $showingContactsManagement) {
             ContactsManagementView()
+        }
+        .sheet(item: $interactionToEdit) { interaction in
+            InteractionEditorView(interaction: interaction)
+        }
+        .alert("Delete Interaction", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                interactionToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let interaction = interactionToDelete {
+                    deleteInteraction(interaction)
+                }
+            }
+        } message: {
+            Text("Are you sure you want to delete this interaction? This action cannot be undone.")
+        }
+    }
+
+    // MARK: - Interaction Management
+
+    private func deleteInteraction(_ interaction: Interaction) {
+        modelContext.delete(interaction)
+        try? modelContext.save()
+
+        // Refresh the timeline
+        interactions = getInteractionsForDate(currentDate)
+        interactionToDelete = nil
+
+        // Clear selection if we deleted the selected interaction
+        if selectedAvatar?.interaction.id == interaction.id {
+            clearSelection()
         }
     }
     
