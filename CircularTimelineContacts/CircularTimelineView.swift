@@ -518,6 +518,8 @@ struct CircularTimelineView: View {
     @State private var interactionToDelete: Interaction?
     @State private var showingProximity = false
     @State private var bluetoothManager: BluetoothManager?
+    @State private var showingCalendarSync = false
+    @State private var calendarManager: CalendarManager?
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let actionFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let tickFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -828,6 +830,20 @@ struct CircularTimelineView: View {
                             .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
                         }
 
+                        // Calendar sync button
+                        Button(action: { showingCalendarSync = true }) {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.15))
+                                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                                )
+                                .shadow(color: Color.black.opacity(0.3), radius: 10, y: 5)
+                        }
+
                         Spacer()
                     }
                     .padding(.leading, 20)
@@ -847,6 +863,11 @@ struct CircularTimelineView: View {
                 let userID = UUID()
                 let userName = "You" // TODO: Get from user settings
                 bluetoothManager = BluetoothManager(userID: userID, userName: userName)
+            }
+
+            // Initialize Calendar manager
+            if calendarManager == nil {
+                calendarManager = CalendarManager()
             }
         }
         .onReceive(Timer.publish(every: 0.016, on: .main, in: .common).autoconnect()) { _ in
@@ -881,6 +902,11 @@ struct CircularTimelineView: View {
         .fullScreenCover(isPresented: $showingProximity) {
             if let manager = bluetoothManager {
                 ProximityView(bluetoothManager: manager)
+            }
+        }
+        .fullScreenCover(isPresented: $showingCalendarSync) {
+            if let manager = calendarManager {
+                CalendarSyncView(calendarManager: manager)
             }
         }
         .sheet(item: $interactionToEdit) { interaction in
