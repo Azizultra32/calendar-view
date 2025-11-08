@@ -310,36 +310,272 @@ struct ContactPickerView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Interaction Builder (Placeholder)
+// MARK: - Interaction Builder
 struct InteractionBuilderView: View {
     let contact: Contact
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Contact.name) private var allContacts: [Contact]
+
+    @State private var selectedContacts: Set<Contact> = []
+    @State private var location: String = ""
+    @State private var startDate: Date = Date()
+    @State private var endDate: Date = Date().addingTimeInterval(3600) // 1 hour later
+    @State private var category: InteractionCategory = .meeting
+    @State private var notes: String = ""
+    @State private var selectedColor: Color = .blue
+
+    private let colorOptions: [Color] = [
+        .blue, .green, .red, .orange, .purple, .pink, .yellow, .cyan, .mint, .indigo
+    ]
 
     var body: some View {
         NavigationStack {
-            VStack {
-                Text("Create Interaction")
-                    .font(.title)
-                Text("With \(contact.name)")
-                    .foregroundColor(.gray)
+            Form {
+                // Participants Section
+                Section {
+                    NavigationLink {
+                        ParticipantPickerView(
+                            allContacts: allContacts,
+                            selectedContacts: $selectedContacts,
+                            primaryContact: contact
+                        )
+                    } label: {
+                        HStack {
+                            Text("Participants")
+                            Spacer()
+                            Text("\(selectedContacts.count + 1)")
+                                .foregroundColor(.gray)
+                        }
+                    }
 
-                // TODO: Add form to create interaction
+                    // Show selected participants
+                    ForEach(Array([contact] + Array(selectedContacts)), id: \.id) { participant in
+                        HStack(spacing: 12) {
+                            if let imageData = participant.avatarImageData,
+                               let uiImage = UIImage(data: imageData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                            } else {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.3))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(participant.initial)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+                            Text(participant.name)
+                            Spacer()
+                            if participant.id != contact.id {
+                                Button(action: { selectedContacts.remove(participant) }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("WHO")
+                }
+
+                // Time Section
+                Section {
+                    DatePicker("Start", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("End", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
+                } header: {
+                    Text("WHEN")
+                }
+
+                // Location Section
+                Section {
+                    TextField("Coffee Shop, Park, etc.", text: $location)
+                } header: {
+                    Text("WHERE")
+                }
+
+                // Category Section
+                Section {
+                    Picker("Category", selection: $category) {
+                        ForEach(InteractionCategory.allCases, id: \.self) { cat in
+                            HStack {
+                                Text(cat.icon)
+                                Text(cat.displayName)
+                            }
+                            .tag(cat)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("CATEGORY")
+                }
+
+                // Color Section
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(colorOptions, id: \.self) { color in
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 44, height: 44)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                                    )
+                                    .onTapGesture {
+                                        selectedColor = color
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                } header: {
+                    Text("COLOR")
+                }
+
+                // Notes Section
+                Section {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 100)
+                } header: {
+                    Text("NOTES")
+                }
             }
+            .navigationTitle("New Interaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { dismiss() }
+                    Button("Save") { saveInteraction() }
+                        .fontWeight(.semibold)
                 }
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            // Primary contact is always included
+            selectedContacts = []
+        }
+    }
+
+    private func saveInteraction() {
+        // Create new interaction
+        let interaction = Interaction(
+            startTime: startDate,
+            endTime: endDate,
+            location: location.isEmpty ? "Unknown Location" : location,
+            category: category,
+            notes: notes.isEmpty ? nil : notes
+        )
+
+        // Set color
+        interaction.colorHex = selectedColor.toHex()
+
+        // Add participants (primary contact + selected)
+        var participants = [contact]
+        participants.append(contentsOf: Array(selectedContacts))
+        interaction.participants = participants
+
+        // Save to SwiftData
+        modelContext.insert(interaction)
+
+        // Link to all participants
+        for participant in participants {
+            if !participant.interactions.contains(where: { $0.id == interaction.id }) {
+                participant.interactions.append(interaction)
+            }
+        }
+
+        try? modelContext.save()
+        dismiss()
     }
 }
 
-// Helper extension for SocialPlatform
+// MARK: - Participant Picker
+struct ParticipantPickerView: View {
+    let allContacts: [Contact]
+    @Binding var selectedContacts: Set<Contact>
+    let primaryContact: Contact
+    @Environment(\.dismiss) private var dismiss
+
+    var availableContacts: [Contact] {
+        allContacts.filter { $0.id != primaryContact.id }
+    }
+
+    var body: some View {
+        List {
+            ForEach(availableContacts) { contact in
+                Button(action: { toggleContact(contact) }) {
+                    HStack(spacing: 12) {
+                        if let imageData = contact.avatarImageData,
+                           let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        } else {
+                            Circle()
+                                .fill(Color.blue.opacity(0.3))
+                                .frame(width: 40, height: 40)
+                                .overlay(
+                                    Text(contact.initial)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(contact.name)
+                                .foregroundColor(.white)
+                            if let phone = contact.phoneNumbers.first {
+                                Text(phone.number)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+
+                        Spacer()
+
+                        if selectedContacts.contains(contact) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                        } else {
+                            Image(systemName: "circle")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .navigationTitle("Add Participants")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") { dismiss() }
+            }
+        }
+    }
+
+    private func toggleContact(_ contact: Contact) {
+        if selectedContacts.contains(contact) {
+            selectedContacts.remove(contact)
+        } else {
+            selectedContacts.insert(contact)
+        }
+    }
+}
+
+// MARK: - Helper Extensions
+
 extension SocialPlatform {
     static func from(serviceName: String) -> SocialPlatform? {
         switch serviceName.lowercased() {
@@ -351,5 +587,30 @@ extension SocialPlatform {
         case "snapchat": return .snapchat
         default: return nil
         }
+    }
+}
+
+extension Color {
+    func toHex() -> String {
+        guard let components = UIColor(self).cgColor.components else { return "#0000FF" }
+
+        let r = components[0]
+        let g = components[1]
+        let b = components[2]
+
+        return String(format: "#%02X%02X%02X",
+                     Int(r * 255),
+                     Int(g * 255),
+                     Int(b * 255))
+    }
+}
+
+extension Contact: Hashable {
+    public static func == (lhs: Contact, rhs: Contact) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
