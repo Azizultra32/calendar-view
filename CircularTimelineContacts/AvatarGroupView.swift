@@ -10,7 +10,7 @@ struct AvatarGroupView: View {
     let currentDate: Date
     let isInteractionSelected: Bool
     let selectedParticipantIndex: Int?
-    
+
     var body: some View {
         ForEach(Array(interaction.participants.enumerated()), id: \.element.id) { index, person in
             let baseAngle = avatarAngle(for: index)
@@ -20,20 +20,14 @@ struct AvatarGroupView: View {
             let x = center.x + cos(rotatedAngle) * radius
             let y = center.y + sin(rotatedAngle) * radius
 
+            // Idle vs. snapped styling
             let fillOpacity: Double = isSelectedParticipant ? 1.0 : 0.78
             let strokeOpacity: Double = isSelectedParticipant ? 1.0 : 0.45
-            let strokeWidth: CGFloat = isSelectedParticipant ? 3 : 1.5
+            let strokeWidth: CGFloat = isSelectedParticipant ? 3.0 : 1.5
             let scale: CGFloat = isSelectedParticipant ? 1.08 : 1.0
             let shadowRadius: CGFloat = isSelectedParticipant ? 5.0 : 0
             let shadowYOffset: CGFloat = isSelectedParticipant ? 1.4 : 0
             let zIndexValue: Double = isSelectedParticipant ? 10.0 : Double(index) * 0.00001
-
-            // Single avatar with both circle and text
-            let isSelected = interaction.id == selectedInteractionID && person.id == selectedPersonID
-            let isSelectionActive = selectedInteractionID != nil && selectedPersonID != nil
-            let baseOpacity = shouldShowAvatar(for: interaction) ? 1.0 : 0.3
-            let finalOpacity = isSelected ? 1.0 : (isSelectionActive ? baseOpacity * 0.45 : baseOpacity)
-            let scale = isSelected ? 1.18 : 1.0
 
             Text(person.initial)
                 .font(.system(size: 12, weight: .bold))
@@ -53,21 +47,20 @@ struct AvatarGroupView: View {
                 .shadow(color: interaction.color.opacity(isSelectedParticipant ? 0.25 : 0), radius: shadowRadius, x: 0, y: shadowYOffset)
                 .animation(.timingCurve(0.32, 0.0, 0.18, 1.0, duration: 0.08), value: isSelectedParticipant)
                 .zIndex(zIndexValue)
-                .opacity(shouldShowAvatar(for: interaction) ? 1.0 : 0.3)
         }
         .frame(width: containerSize, height: containerSize)
     }
-    
+
     private func avatarAngle(for index: Int) -> Double {
         let baseAngle = angleFromTime(interaction.startTime)
         return baseAngle + Double(index) * overlapAngle * (.pi / 180)
     }
-    
+
     private func angleFromTime(_ time: Date) -> Double {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: time)
         let minute = calendar.component(.minute, from: time)
-        
+
         switch timeSpan {
         case .sixHours:
             // Get the current 6-hour window
@@ -89,11 +82,11 @@ struct AvatarGroupView: View {
             return (totalMinutes / spanMinutes) * 2 * .pi - .pi/2
         }
     }
-    
+
     private func getWindowStartHour() -> Int {
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: currentDate)
-        
+
         switch timeSpan {
         case .sixHours:
             return (currentHour / 6) * 6
@@ -103,13 +96,4 @@ struct AvatarGroupView: View {
             return 0
         }
     }
-    
-    private func shouldShowAvatar(for interaction: TimeInteraction) -> Bool {
-        // Show avatar only if the interaction is within the current time span
-        let calendar = Calendar.current
-        let startOfTimeSpan = calendar.startOfDay(for: currentDate)
-        
-        return interaction.startTime >= startOfTimeSpan
-    }
-
 }

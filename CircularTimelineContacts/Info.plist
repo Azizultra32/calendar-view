@@ -50,5 +50,14 @@
     <string>This app needs access to contacts to display your interactions on the timeline.</string>
     <key>NSCalendarsUsageDescription</key>
     <string>This app needs access to your calendar to show meetings and events on the timeline.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>This app uses Bluetooth to discover nearby friends who also use the app. You can disable this anytime in settings.</string>
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>This app uses Bluetooth to let nearby friends discover you. This feature is completely optional.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>bluetooth-central</string>
+        <string>bluetooth-peripheral</string>
+    </array>
 </dict>
 </plist>
